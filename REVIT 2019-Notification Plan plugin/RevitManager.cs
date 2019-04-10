@@ -361,7 +361,7 @@ namespace RevitViewAndSheetManager
                 return true;
             }
             else
-            {   //there was no view or tempalte, warn the user
+            {   //there was no view or template, warn the user
                 //create error box                
 
                 string msg = string.Empty;
