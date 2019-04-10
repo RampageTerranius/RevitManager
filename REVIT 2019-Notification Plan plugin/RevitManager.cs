@@ -28,7 +28,7 @@ namespace RevitViewAndSheetManager
         //constructors//
         ////////////////
 
-        public RevitManager(ExternalCommandData commandData, string transactionName)
+        public RevitManager(ExternalCommandData commandData)
         {
             //check if we have been given command data
             if (commandData == null)
@@ -37,10 +37,7 @@ namespace RevitViewAndSheetManager
             //preparing 
             uiDoc = commandData.Application.ActiveUIDocument;
             doc = uiDoc.Document;
-
-            //prepare the transaction group and start it
             transaction = new TransactionGroup(doc);
-            transaction.Start(transactionName);
         }
 
         ////////////////////
@@ -253,6 +250,7 @@ namespace RevitViewAndSheetManager
             }
         }
 
+        //rotate an element by a specific angle
         public bool RotateElement(ElementId id, Line axis, double angle)
         {
             try
@@ -267,6 +265,7 @@ namespace RevitViewAndSheetManager
             }
         }
 
+        //rotate an element by 90 degree angles
         public bool RotateElement(ElementId id, Line axis, RotationAngle angle)
         {
             try
@@ -298,7 +297,7 @@ namespace RevitViewAndSheetManager
                 return true;
             }
             else
-            {   //did not fidn aview, give the user an error
+            {   //did not find aview, give the user an error
                 {
                     ShowMessageBox("Warning!",
                             "ID_TaskDialog_Warning",
@@ -323,21 +322,22 @@ namespace RevitViewAndSheetManager
                 {
                     t.Start("Duplicating view.");
                     ElementId id = v.Duplicate(duplicateOption);
+
                     View tempView = doc.GetElement(id) as View;
                     tempView.Name = newViewName;//rename the view to the new name
+
                     t.Commit();
                 }
 
                 return true;
             }
             else
-            {   
+            {
                 ShowMessageBox("Warning!",
                             "ID_TaskDialog_Warning",
                             "Unable to duplicate view '" + viewName + "'.",
                             TaskDialogIcon.TaskDialogIconWarning,
                             TaskDialogCommonButtons.Close);
-
 
                 return false;
             }
@@ -410,7 +410,7 @@ namespace RevitViewAndSheetManager
                             "ID_TaskDialog_Warning",
                             "Unable to remove independent tags from view '" + viewName + "', the view may not exist.",
                             TaskDialogIcon.TaskDialogIconWarning,
-                            TaskDialogCommonButtons.Close);                                  
+                            TaskDialogCommonButtons.Close);
 
                 return;
             }
@@ -538,19 +538,28 @@ namespace RevitViewAndSheetManager
             Delete(coll2);
         }
 
+        //adds the given view to the given sheet then returns the ElementId, places the view directly in the middle of the sheet
         public ElementId AddViewToSheet(string sheetName, string viewName)
         {
             return AddViewToSheet(sheetName, viewName, null);
         }
 
+        //adds the given view to the given sheet then returns the ElementId, places the view at the given coordiantes on the sheet
         public ElementId AddViewToSheet(string sheetName, string viewName, XYZ xyz)
         {
+            //get the sheet and the view
             ElementId s = GetSheetId(sheetName);
             ElementId v = GetViewId(viewName);
 
+            //check if we have elements to work with
+            if (s == null || v == null)
+                return null;
+
+            //check if we have been given a specific location to place the viewport
             if (xyz == null)
                 xyz = new XYZ(0, 0, 0);
 
+            //create the viewport
             using (Transaction t = new Transaction(doc))
             {
                 t.Start("Creating ViewPort.");
@@ -597,14 +606,17 @@ namespace RevitViewAndSheetManager
             List<string> swidth = new List<string>();
 
             foreach (FamilyInstance e in a)
-            {                
+            {
                 p = e.get_Parameter(
                   BuiltInParameter.SHEET_NUMBER);
 
                 string sheet_number = p.AsString();
 
+                //check if we are on the correct sheet
                 if (sheet_number != sheetName)
                     continue;
+
+                //we are on the correct sheet, get the width and height and return it
 
                 p = e.get_Parameter(
                   BuiltInParameter.SHEET_WIDTH);
@@ -669,7 +681,7 @@ namespace RevitViewAndSheetManager
                 return;
 
             if (!vp.Name.Equals(typeName))
-                foreach(ElementId id in vp.GetValidTypes())
+                foreach (ElementId id in vp.GetValidTypes())
                 {
                     ElementType type = doc.GetElement(id) as ElementType;
                     if (type.Name.Equals(typeName))
@@ -683,13 +695,15 @@ namespace RevitViewAndSheetManager
 
                         return;
                     }
-                }            
+                }
         }
 
+        //checks if a view with the specified name is currently open
         public bool ViewIsOpen(string name)
         {
             ElementId v = GetView(name).Id;
 
+            //view does not exist and so therefore can not be open, return false
             if (v == null)
                 return false;
 
@@ -698,12 +712,13 @@ namespace RevitViewAndSheetManager
             foreach (UIView uiV in openViews)
             {
                 if (uiV.ViewId.Equals(v))
-                    return true;
+                    return true;//we found the view and it is open
             }
 
             return false;
         }
 
+        //checks if a sheet with the specified name is open
         public bool SheetIsOpen(string name)
         {
             ElementId v = GetSheet(name).Id;
@@ -717,12 +732,13 @@ namespace RevitViewAndSheetManager
             foreach (UIView uiV in openViews)
             {
                 if (uiV.ViewId.Equals(v))
-                    return true;
+                    return true;//we found the sheet and it is open
             }
 
             return false;
         }
 
+        //shows a message box using the given parameters
         public void ShowMessageBox(string dialogName, string id, string message, TaskDialogIcon icon, TaskDialogCommonButtons buttons)
         {
             //give an error message if we do not
@@ -734,6 +750,7 @@ namespace RevitViewAndSheetManager
             td.Show();
         }
 
+        //directly moves an element around a sheet, DOES NOT MOVE IT BETWEEN SHEETS
         public void MoveElement(ElementId id, double x, double y)
         {
             using (Transaction t = new Transaction(doc))
@@ -744,13 +761,24 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        public void CommitChanges()
+        public void StartTransactions(string transactionName)
+        {
+            if (!transaction.HasStarted())
+            {
+                //prepare the transaction group and start it
+                transaction.Start(transactionName);
+            }                
+        }
+
+        //commits ALL transactions since the class was created        
+        public void CommitTransactions()
         {
             if (transaction.HasStarted())            
                 transaction.Assimilate();            
         }
 
-        public void RevertChanges()
+        //reverts ALL transactions since the class was created
+        public void RevertTransactions()
         {
             if (transaction.HasStarted())
                 transaction.RollBack();
