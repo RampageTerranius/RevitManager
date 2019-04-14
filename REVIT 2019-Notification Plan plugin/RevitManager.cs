@@ -796,7 +796,7 @@ namespace RevitViewAndSheetManager
             if (coll == null)
                 return false;
 
-            int count = coll.Count;
+            int count = 1;
 
             foreach (ElementId id in coll)
             {
@@ -825,7 +825,7 @@ namespace RevitViewAndSheetManager
                     t.Commit();
                 }
 
-                count--;
+                count++;
             }
 
             return true;
@@ -1030,7 +1030,7 @@ namespace RevitViewAndSheetManager
             //check if we found the sheet
             if (sheets != null)
                 foreach (View v in sheets)
-                    coll.Add(v.Id);//found a sheet with name    
+                    coll.Add(v.Id);//found a sheet with name
 
             //didnt find the id, return null
             if (coll.Count >= 1)
