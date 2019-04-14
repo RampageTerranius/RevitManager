@@ -20,7 +20,7 @@ namespace RevitViewAndSheetManager
         private Document doc = null;
         private UIDocument uiDoc = null;
 
-        private TransactionGroup transaction;
+        private TransactionGroup transactionList;
 
         //TODO: error handling, have a list of errors and a way to get last error
 
@@ -37,7 +37,7 @@ namespace RevitViewAndSheetManager
             //preparing 
             uiDoc = commandData.Application.ActiveUIDocument;
             doc = uiDoc.Document;
-            transaction = new TransactionGroup(doc);
+            transactionList = new TransactionGroup(doc);
         }
 
         ////////////////////
@@ -763,25 +763,72 @@ namespace RevitViewAndSheetManager
 
         public void StartTransactions(string transactionName)
         {
-            if (!transaction.HasStarted())
+            if (!transactionList.HasStarted())
             {
                 //prepare the transaction group and start it
-                transaction.Start(transactionName);
-            }                
+                transactionList.Start(transactionName);
+            }
         }
 
         //commits ALL transactions since the class was created        
         public void CommitTransactions()
         {
-            if (transaction.HasStarted())            
-                transaction.Assimilate();            
+            if (transactionList.HasStarted())
+                transactionList.Assimilate();
         }
 
         //reverts ALL transactions since the class was created
         public void RevertTransactions()
         {
-            if (transaction.HasStarted())
-                transaction.RollBack();
+            if (transactionList.HasStarted())
+                transactionList.RollBack();
+        }
+
+        //exports a given sheet as a DWG file usign the given options
+        //if multiple sheets of same name found exports all
+        public bool ExportSheetAsDWG(string sheetName, string filePath, DWGExportOptions options)
+        {
+            //make sure we have data to work with
+            if (options == null || filePath == string.Empty)
+                return false;
+
+            ICollection<ElementId> coll = GetSheetIdList(sheetName);
+            if (coll == null)
+                return false;
+
+            int count = coll.Count;
+
+            foreach (ElementId id in coll)
+            {
+                using (Transaction t = new Transaction(doc))
+                {
+                    string name = sheetName;
+
+                    if (count > 1)
+                        name += "-" + count.ToString();
+
+                    t.Start("exporting '" + name + "' as a DWG file.");
+
+                    ICollection<ElementId> ele = new List<ElementId>();
+                    ele.Add(id);
+
+                    try
+                    {
+                        doc.Export(filePath, name, ele, options);
+                    }
+                    catch (Exception e)
+                    {
+                        t.RollBack();
+                        return false;
+                    }
+
+                    t.Commit();
+                }
+
+                count--;
+            }
+
+            return true;
         }
 
         /////////////////////
@@ -877,7 +924,7 @@ namespace RevitViewAndSheetManager
 
             //did not find specified view family type
             return null;
-        }        
+        }
 
         private View GetSheet(string sheetName)
         {
@@ -945,6 +992,7 @@ namespace RevitViewAndSheetManager
             return null;
         }
 
+        //finds and returns the id of the first found sheet with the given name
         private ElementId GetSheetId(string sheetName)
         {
             //find a specific drawing sheet
@@ -965,6 +1013,30 @@ namespace RevitViewAndSheetManager
 
             //didnt find the id, return null
             return null;
+        }
+
+        //finds and returns the id of ALL sheets with the given name
+        private ICollection<ElementId> GetSheetIdList(string sheetName)
+        {
+            //find a specific drawing sheet
+            IEnumerable<View> sheets = new FilteredElementCollector(doc)
+                .OfClass(typeof(View))
+                .Cast<View>()
+                .Where(v => v.Name.Equals(sheetName)
+                && v.ViewType == ViewType.DrawingSheet);
+
+            ICollection<ElementId> coll = new List<ElementId>();
+
+            //check if we found the sheet
+            if (sheets != null)
+                foreach (View v in sheets)
+                    coll.Add(v.Id);//found a sheet with name    
+
+            //didnt find the id, return null
+            if (coll.Count >= 1)
+                return coll;
+            else
+                return null;
         }
 
         private ElementId GetTitleBlockId(string titleBlock)
