@@ -1019,9 +1019,10 @@ namespace RevitViewAndSheetManager
         private ICollection<ElementId> GetSheetIdList(string sheetName)
         {
             //find a specific drawing sheet
-            IEnumerable<View> sheets = new FilteredElementCollector(doc)
-                .OfClass(typeof(View))
-                .Cast<View>()
+            IEnumerable<ViewSheet> sheets = new FilteredElementCollector(doc)
+                .OfClass(typeof(ViewSheet))
+                .Cast<ViewSheet>()
+                .OrderBy(v => v.SheetNumber)//attempt to order this list by the sheet number
                 .Where(v => v.Name.Equals(sheetName)
                 && v.ViewType == ViewType.DrawingSheet);
 
@@ -1029,8 +1030,9 @@ namespace RevitViewAndSheetManager
 
             //check if we found the sheet
             if (sheets != null)
-                foreach (View v in sheets)
-                    coll.Add(v.Id);//found a sheet with name
+                foreach (ViewSheet v in sheets)
+                    coll.Add(v.Id);//found a sheet with name    
+
 
             //didnt find the id, return null
             if (coll.Count >= 1)
