@@ -108,7 +108,7 @@ namespace RevitViewAndSheetManager
                 return false;
         }
 
-        //wiep the first sheet with the given name
+        //wipe the first sheet with the given name
         public bool DeleteSheet(string sheetName)
         {
             if (sheetName != null)
@@ -349,7 +349,7 @@ namespace RevitViewAndSheetManager
             View v = GetView(viewName);
             ElementId id = GetViewTemplateId(templateName);
 
-            if (v != null && id != null)//check that we have a view and a tempalte to work with
+            if (v != null && id != null)//check that we have a view and a template to work with
             {
                 using (Transaction t = new Transaction(doc))
                 {
@@ -792,16 +792,19 @@ namespace RevitViewAndSheetManager
             if (options == null || filePath == string.Empty)
                 return false;
 
+            //make sure we got sheets to work with
             ICollection<ElementId> coll = GetSheetIdList(sheetName);
             if (coll == null)
                 return false;
 
+            //count how many sheets we have gone through
             int count = 1;
 
             foreach (ElementId id in coll)
             {
                 using (Transaction t = new Transaction(doc))
                 {
+                    //get the sheet name and check if we need to add a nubmer to the end
                     string name = sheetName;
 
                     if (count > 1)
@@ -810,8 +813,9 @@ namespace RevitViewAndSheetManager
                     t.Start("exporting '" + name + "' as a DWG file.");
 
                     ICollection<ElementId> ele = new List<ElementId>();
-                    ele.Add(id);
+                    ele.Add(id);//add the file to a list as required
 
+                    //attempt to export the sheet and rollback if it fails
                     try
                     {
                         doc.Export(filePath, name, ele, options);
@@ -829,6 +833,34 @@ namespace RevitViewAndSheetManager
             }
 
             return true;
+        }
+
+        //returns the location that the project exists in a string
+        public string GetProjectFileLocation()
+        {
+            try
+            {
+                string str = System.IO.Path.GetDirectoryName(doc.PathName);
+                return str;
+            }
+            catch(Exception e)
+            {
+                return string.Empty;
+            }
+        }
+
+        //returns the file name of the project
+        public string GetProjectFileName()
+        {
+            try
+            {
+                string str = (System.IO.Path.GetFileNameWithoutExtension(doc.PathName));
+                return str;
+            }
+            catch (Exception e)
+            {
+                return string.Empty;
+            }
         }
 
         /////////////////////
