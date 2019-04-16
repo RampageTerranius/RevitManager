@@ -187,81 +187,34 @@ namespace RevitViewAndSheetManager
         }
 
         //rotates all entities on a given view in 90 degree angles
-        //TODO: Rebuild this function, it can be done MUCH cleaner then its being done now
-        public bool RotateView(string viewName, RotationAngle rotation)
+        //TODO: fix this function, views are not currently rotating as desired, or at all
+        public void RotateView(string viewName, RotationAngle rotation)
         {
             //get the id of the view we need to rotate
             View v = GetView(viewName);
+
+            if (v == null)
+                return;//no view to work with
+
+            //attempt to get the crop box directly
+            Element cropBox = doc.GetElement(GetCropBox(v));
+
+            using (Transaction t = new Transaction(doc))
             {
-                View activeView = doc.ActiveView;
+                BoundingBoxXYZ bbox = v.CropBox;
 
-                Element cropBoxElement = null;
+                XYZ center = 0.5 * (bbox.Max + bbox.Min);
 
-                using (TransactionGroup t
-                  = new TransactionGroup(doc))
-                {
-                    t.Start("Temp to find crop box element");
+                Line axis = Line.CreateBound(
+                  center, center + XYZ.BasisZ);
+                
+                t.Start("Attempting to rotate.");
 
-                    using (Transaction t2 = new Transaction(
-                      doc, "Temp to find crop box element"))
-                    {
-                        // Deactivate crop box
-
-                        t2.Start();
-                        v.CropBoxVisible = false;
-                        t2.Commit();
-
-                        // Get all visible elements;
-                        // this excludes hidden crop box
-
-                        FilteredElementCollector collector
-                          = new FilteredElementCollector(
-                            doc, v.Id);
-
-                        ICollection<ElementId> shownElems
-                          = collector.ToElementIds();
-
-                        // Activate crop box
-
-                        t2.Start();
-                        v.CropBoxVisible = true;
-                        t2.Commit();
-
-                        // Get all visible elements excluding
-                        // everything except the crop box
-
-                        collector = new FilteredElementCollector(
-                          doc, v.Id);
-                        collector.Excluding(shownElems);
-                        cropBoxElement = collector.FirstElement();
-                    }
-                    t.RollBack();
-                }
-
-                using (Transaction t3 = new Transaction(doc))
-                {
-                    for (int i = 0; i != (int)rotation; i++)
-                    {
-                        BoundingBoxXYZ bbox = v.CropBox;
-
-                        XYZ center = 0.5 * (bbox.Max + bbox.Min);
-
-                        Line axis = Line.CreateBound(
-                          center, center + XYZ.BasisZ);
-
-                        t3.Start("Rotate crop box element.");
-
-                        ElementTransformUtils.RotateElement(doc,
-                          cropBoxElement.Id, axis, Math.PI / 2);
-
-                        t3.Commit();
-                    }
-
-                    return true;
-                }
+                ElementTransformUtils.RotateElement(doc, cropBox.Id, axis, (Math.PI / 2) * (int)rotation);
+                t.Commit();
             }
         }
-
+        
         //rotate an element by a specific angle
         public bool RotateElement(ElementId id, Line axis, double angle)
         {
@@ -636,6 +589,32 @@ namespace RevitViewAndSheetManager
                 return vp.Id;
             }
         }
+
+        //returns the ID of the crop box of a given view
+        //With thanks to Jeremy Tammik
+        //https://thebuildingcoder.typepad.com/blog/2018/02/efficiently-retrieve-crop-box-for-given-view.html
+        public ElementId GetCropBox(View view)
+        {        
+            if (view == null)
+                return null;
+
+            return new FilteredElementCollector(doc)
+               .WherePasses(new ElementParameterFilter(
+                                new FilterElementIdRule(
+                                    new ParameterValueProvider(new ElementId((int)BuiltInParameter.ID_PARAM)), new FilterNumericEquals(), view.Id)))
+               .ToElementIds()
+               .Where<ElementId>(b => b.IntegerValue != view.Id.IntegerValue)
+               .FirstOrDefault<ElementId>();                       
+        }
+
+        public ElementId GetCropBox(string viewName)
+        {
+            View v = GetView(viewName);
+
+            return GetCropBox(v);
+        }
+
+
 
         //load all views and return them in a viewset. skips all templates, use GetAllViewTempaltes for this
         public ViewSet GetAllViews()
