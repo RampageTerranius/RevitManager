@@ -206,7 +206,7 @@ namespace RevitViewAndSheetManager
             Line axis = Line.CreateBound(
                 center, center + XYZ.BasisZ);
 
-            RotateElement(cropBox.Id, axis, (Math.PI / 2) * (int)rotation);            
+            RotateElement(cropBox.Id, axis, rotation);
         }
         
         //rotate an element by a specific angle
@@ -231,20 +231,7 @@ namespace RevitViewAndSheetManager
         //rotate an element by 90 degree angles
         public bool RotateElement(ElementId id, Line axis, RotationAngle angle)
         {
-            try
-            {
-                using (Transaction t = new Transaction(doc))
-                {
-                    t.Start("Attempting to rotate element " + id.IntegerValue.ToString() + " to " + angle.ToString());
-                    ElementTransformUtils.RotateElement(doc, id, axis, (Math.PI / 2) * (int)angle);
-                    t.Commit();
-                }
-                return true;
-            }
-            catch (Exception e)
-            {
-                return false;
-            }
+             return RotateElement(id, axis, (Math.PI / 2) * (int)angle);
         }
 
         //finds and renames a view
