@@ -187,7 +187,7 @@ namespace RevitViewAndSheetManager
         }
 
         //rotates all entities on a given view in 90 degree angles
-        //TODO: fix this function, views are not currently rotating as desired, or at all
+        //TODO: fix this function, views are not currently rotating as desired, or at all. may require duplication of view BEFORE attempting to rotate? needs testing
         public void RotateView(string viewName, RotationAngle rotation)
         {
             //get the id of the view we need to rotate
@@ -198,21 +198,15 @@ namespace RevitViewAndSheetManager
 
             //attempt to get the crop box directly
             Element cropBox = doc.GetElement(GetCropBox(v));
+            
+            BoundingBoxXYZ bbox = v.CropBox;
 
-            using (Transaction t = new Transaction(doc))
-            {
-                BoundingBoxXYZ bbox = v.CropBox;
+            XYZ center = 0.5 * (bbox.Max + bbox.Min);
 
-                XYZ center = 0.5 * (bbox.Max + bbox.Min);
+            Line axis = Line.CreateBound(
+                center, center + XYZ.BasisZ);
 
-                Line axis = Line.CreateBound(
-                  center, center + XYZ.BasisZ);
-                
-                t.Start("Attempting to rotate.");
-
-                ElementTransformUtils.RotateElement(doc, cropBox.Id, axis, (Math.PI / 2) * (int)rotation);
-                t.Commit();
-            }
+            RotateElement(cropBox.Id, axis, (Math.PI / 2) * (int)rotation);            
         }
         
         //rotate an element by a specific angle
@@ -220,8 +214,12 @@ namespace RevitViewAndSheetManager
         {
             try
             {
-                ElementTransformUtils.RotateElement(doc, id, axis, angle);
-
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Attempting to rotate element " + id.IntegerValue.ToString() + " by " + angle.ToString());
+                    ElementTransformUtils.RotateElement(doc, id, axis, angle);
+                    t.Commit();
+                }
                 return true;
             }
             catch (Exception e)
@@ -235,8 +233,12 @@ namespace RevitViewAndSheetManager
         {
             try
             {
-                ElementTransformUtils.RotateElement(doc, id, axis, (Math.PI / 2) * (int)angle);
-
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Attempting to rotate element " + id.IntegerValue.ToString() + " to " + angle.ToString());
+                    ElementTransformUtils.RotateElement(doc, id, axis, (Math.PI / 2) * (int)angle);
+                    t.Commit();
+                }
                 return true;
             }
             catch (Exception e)
@@ -604,7 +606,7 @@ namespace RevitViewAndSheetManager
                                     new ParameterValueProvider(new ElementId((int)BuiltInParameter.ID_PARAM)), new FilterNumericEquals(), view.Id)))
                .ToElementIds()
                .Where<ElementId>(b => b.IntegerValue != view.Id.IntegerValue)
-               .FirstOrDefault<ElementId>();                       
+               .FirstOrDefault<ElementId>();
         }
 
         public ElementId GetCropBox(string viewName)
@@ -682,32 +684,6 @@ namespace RevitViewAndSheetManager
             //didnt find the sheet, return null
             return null;
         }
-
-        //DOES NOT SEEM POSSIBLE TO GET VIEWPORT TITLE FOR MOVING
-        /*public ElementId GetViewportTitleAsId(ElementId viewport)
-        {
-            Viewport vp = doc.GetElement(viewport) as Viewport;
-
-            IEnumerable<ElementType> views = new FilteredElementCollector(doc)            
-            .OfClass(typeof(ElementType))            
-            .OfCategory(BuiltInCategory.OST_ViewportLabel)
-            .Cast<ElementType>();
-
-            foreach (ElementType et in views)
-            {
-
-                string s = et.Name;
-
-                if (s != null)
-                {
-                    s = s;
-                    ElementId myeah = et.OwnerViewId;
-
-                }
-            }           
-
-            return null;
-        }*/
 
         public void ChangeViewPortType(string sheetName, ElementId viewportId, string typeName)
         {
