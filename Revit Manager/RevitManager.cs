@@ -95,12 +95,13 @@ namespace RevitViewAndSheetManager
                 {
                     if (debugMode)
                         ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to create a new ViewSheet by the name of " + sheetName + ", of number " + sheetNumber + ", of titleblock type " + titleBlock,
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                       "ID_TaskDialog_Warning",
+                                       "Unable to create a new ViewSheet by the name of " + sheetName + ", of number " + sheetNumber + ", of titleblock type " + titleBlock,
+                                       TaskDialogIcon.TaskDialogIconWarning,
+                                       TaskDialogCommonButtons.Close);
                 
-                t.RollBack();
+                    t.RollBack();
+
                     return false;
                 }
             }
@@ -175,10 +176,10 @@ namespace RevitViewAndSheetManager
 
                     //show the message
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                msg,
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   msg,
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
                 }
 
                 return false;
@@ -222,7 +223,7 @@ namespace RevitViewAndSheetManager
                 }
                 return true;
             }
-            catch (Exception e)
+            catch
             {
                 return false;
             }
@@ -254,10 +255,10 @@ namespace RevitViewAndSheetManager
             {   //did not find aview, give the user an error
                 if (debugMode)                
                     ShowMessageBox("Warning!",
-                            "ID_TaskDialog_Warning",
-                            "Unable to rename view '" + viewName + "', view may not exist!",
-                            TaskDialogIcon.TaskDialogIconWarning,
-                            TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to rename view '" + viewName + "', view may not exist!",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
                 
                 return false;                
             }
@@ -288,10 +289,10 @@ namespace RevitViewAndSheetManager
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to duplicate view '" + viewName + "'.",
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to duplicate view '" + viewName + "'.",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
 
                 return false;
             }
@@ -345,10 +346,10 @@ namespace RevitViewAndSheetManager
                     }
 
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                msg,
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);                    
+                                   "ID_TaskDialog_Warning",
+                                   msg,
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);                    
                 }
 
                 return false;
@@ -364,10 +365,10 @@ namespace RevitViewAndSheetManager
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to remove all independant tags from " + viewName + ", it may not exist.",
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to remove all independant tags from " + viewName + ", it may not exist.",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
 
                 return;
             }
@@ -375,9 +376,9 @@ namespace RevitViewAndSheetManager
 
             //grab all independent tags owned by the view we are worknig with
             IEnumerable<IndependentTag> coll = new FilteredElementCollector(doc)
-                 .OfClass(typeof(IndependentTag))
-                 .Cast<IndependentTag>()
-                 .Where(i => i.OwnerViewId.Equals(v));
+                .OfClass(typeof(IndependentTag))
+                .Cast<IndependentTag>()
+                .Where(i => i.OwnerViewId.Equals(v));
 
             //wipe all found tags
             List<ElementId> coll2 = new List<ElementId>();
@@ -397,19 +398,19 @@ namespace RevitViewAndSheetManager
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to remove all dimensions from " + viewName + ", it may not exist.",
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to remove all dimensions from " + viewName + ", it may not exist.",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
                 return;
             }
             
 
             //get all the dimensions
             IEnumerable<Dimension> coll = new FilteredElementCollector(doc)
-                 .OfClass(typeof(Dimension))
-                 .Cast<Dimension>()
-                 .Where(i => i.OwnerViewId.Equals(v));
+                .OfClass(typeof(Dimension))
+                .Cast<Dimension>()
+                .Where(i => i.OwnerViewId.Equals(v));
 
             //wipe all found dimensions
             List<ElementId> coll2 = new List<ElementId>();
@@ -429,20 +430,20 @@ namespace RevitViewAndSheetManager
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to remove all independant tags of type " + dimType.ToString() + " from " + viewName + ", it may not exist.",
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to remove all independant tags of type " + dimType.ToString() + " from " + viewName + ", it may not exist.",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
 
                 return;
             }
 
             //get all the dimensions we need to wipe
             IEnumerable<Dimension> coll = new FilteredElementCollector(doc)
-                 .OfClass(typeof(Dimension))
-                 .Cast<Dimension>()
-                 .Where(i => i.OwnerViewId.Equals(v)
-                 && i.DimensionType.StyleType == dimType);
+                .OfClass(typeof(Dimension))
+                .Cast<Dimension>()
+                .Where(i => i.OwnerViewId.Equals(v)
+                && i.DimensionType.StyleType == dimType);
 
             //wipe all found dimensions
             List<ElementId> coll2 = new List<ElementId>();
@@ -462,18 +463,18 @@ namespace RevitViewAndSheetManager
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to remove all text notes from " + viewName + ", it may not exist.",
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to remove all text notes from " + viewName + ", it may not exist.",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
                 return;
             }
 
             //get all text notes
             IEnumerable<TextNote> coll = new FilteredElementCollector(doc)
-                 .OfClass(typeof(TextNote))
-                 .Cast<TextNote>()
-                 .Where(b => b.OwnerViewId == v);
+                .OfClass(typeof(TextNote))
+                .Cast<TextNote>()
+                .Where(b => b.OwnerViewId == v);
 
             //wipe all found text notes
             List<ElementId> coll2 = new List<ElementId>();
@@ -494,18 +495,18 @@ namespace RevitViewAndSheetManager
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to remove all generic annotations from " + viewName + ", it may not exist.",
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to remove all generic annotations from " + viewName + ", it may not exist.",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
                 return;
             }
 
             //find all annotation symbols in the given view
             IEnumerable<FamilyInstance> coll = new FilteredElementCollector(doc, v)
-                  .OfClass(typeof(FamilyInstance))
-                  .Cast<FamilyInstance>()
-                  .Where(b => b.Symbol.GetType().Name.Equals("AnnotationSymbolType"));
+                .OfClass(typeof(FamilyInstance))
+                .Cast<FamilyInstance>()
+                .Where(b => b.Symbol.GetType().Name.Equals("AnnotationSymbolType"));
 
             //wipe all found symbols
             List<ElementId> coll2 = new List<ElementId>();
@@ -526,17 +527,18 @@ namespace RevitViewAndSheetManager
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
-                                "ID_TaskDialog_Warning",
-                                "Unable to remove all groups from " + viewName + ", it may not exist.",
-                                TaskDialogIcon.TaskDialogIconWarning,
-                                TaskDialogCommonButtons.Close);
+                                   "ID_TaskDialog_Warning",
+                                   "Unable to remove all groups from " + viewName + ", it may not exist.",
+                                   TaskDialogIcon.TaskDialogIconWarning,
+                                   TaskDialogCommonButtons.Close);
+
                 return;
             }
 
             //find all annotation symbols in the given view
             IEnumerable<GroupType> coll = new FilteredElementCollector(doc, v)
-                  .OfClass(typeof(GroupType))
-                  .Cast<GroupType>();
+                .OfClass(typeof(GroupType))
+                .Cast<GroupType>();
 
             //wipe all found symbols
             List<ElementId> coll2 = new List<ElementId>();
@@ -580,15 +582,16 @@ namespace RevitViewAndSheetManager
         }
 
         //returns the ID of the crop box of a given view
-        //With thanks to Jeremy Tammik
+        //With thanks to Jeremy Tammik/Konrads Samulis
         //https://thebuildingcoder.typepad.com/blog/2018/02/efficiently-retrieve-crop-box-for-given-view.html
         public ElementId GetCropBox(View view)
         {        
+            //check that we actually have a view to work with
             if (view == null)
                 return null;
 
             return new FilteredElementCollector(doc)
-               .WherePasses(new ElementParameterFilter(
+                .WherePasses(new ElementParameterFilter(
                                 new FilterElementIdRule(
                                     new ParameterValueProvider(new ElementId((int)BuiltInParameter.ID_PARAM)), new FilterNumericEquals(), view.Id)))
                .ToElementIds()
@@ -596,16 +599,15 @@ namespace RevitViewAndSheetManager
                .FirstOrDefault<ElementId>();
         }
 
+        //gets crop box using the name of the view instead of the view its self
         public ElementId GetCropBox(string viewName)
         {
-            View v = GetView(viewName);
+            View v = GetView(viewName);//does not need to check if we have a view as GetCropBox(View view) will check for us
 
             return GetCropBox(v);
         }
 
-
-
-        //load all views and return them in a viewset. skips all templates, use GetAllViewTempaltes for this
+        //load all views and return them in a viewset. skips all templates, use GetAllViewTemplates for this
         public ViewSet GetAllViews()
         {
             //find all views
@@ -615,8 +617,9 @@ namespace RevitViewAndSheetManager
                 .Where(b => !b.IsTemplate
                 && b.ViewType != ViewType.DrawingSheet);
 
-            //add all teh views into a ViewSet
+            //add all the views into a ViewSet
             ViewSet allViews = new ViewSet();
+
             foreach (View v in views)
                 allViews.Insert(v);
 
@@ -634,8 +637,8 @@ namespace RevitViewAndSheetManager
             // retrieve the title block instances            
             Parameter p;
             FilteredElementCollector a = new FilteredElementCollector(doc)
-            .OfCategory(BuiltInCategory.OST_TitleBlocks)
-            .OfClass(typeof(FamilyInstance));
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .OfClass(typeof(FamilyInstance));
 
             List<string> sheight = new List<string>();
             List<string> swidth = new List<string>();
@@ -672,13 +675,16 @@ namespace RevitViewAndSheetManager
             return null;
         }
 
+        //changes a viewport on the given sheets viewporttype into another type
         public void ChangeViewPortType(string sheetName, ElementId viewportId, string typeName)
         {
             ElementId i = GetSheetId(sheetName);
 
+            //make sure we have a sheet to work with
             if (i == null)
                 return;
 
+            //get the viewport we are after
             IEnumerable<Viewport> viewports = new FilteredElementCollector(doc, i)
                 .OfClass(typeof(Viewport))
                 .Cast<Viewport>()
@@ -686,6 +692,7 @@ namespace RevitViewAndSheetManager
 
             Viewport vp = viewports.FirstOrDefault();
 
+            //make sure we have a viewport to work with
             if (vp == null)
                 return;
 
@@ -712,22 +719,16 @@ namespace RevitViewAndSheetManager
         {
             View v = GetView(name);
 
+            //make sure we have a view to work with, if we dont it doesnt exist and therefore cane not be open
             if (v == null)
                 return false;
 
-            ElementId id = v.Id;
-
-            //view does not exist and so therefore can not be open, return false
-            if (id == null)
-                return false;
-
+            //get a list of all open views and check if the oen we are checking for is open
             IList<UIView> openViews = uiDoc.GetOpenUIViews();
 
-            foreach (UIView uiV in openViews)
-            {
-                if (uiV.ViewId.Equals(id))
-                    return true;//we found the view and it is open
-            }
+            foreach (UIView uiV in openViews)            
+                if (uiV.ViewId.Equals(v.Id))
+                    return true;//we found the view and it is open            
 
             return false;
         }
@@ -737,22 +738,15 @@ namespace RevitViewAndSheetManager
         {
             View v = GetSheet(name);
 
+            //make sure we have a sheet to work with, if we dont it doesnt exist and therefore cane not be open
             if (v == null)
-                return false;
-
-            ElementId id = v.Id;
-
-            //sheet does not exist to begin with, so therefore can not be open, return false
-            if (id == null)
                 return false;
 
             IList<UIView> openViews = uiDoc.GetOpenUIViews();
 
-            foreach (UIView uiV in openViews)
-            {
-                if (uiV.ViewId.Equals(id))
-                    return true;//we found the sheet and it is open
-            }
+            foreach (UIView uiV in openViews)            
+                if (uiV.ViewId.Equals(v.Id))
+                    return true;//we found the sheet and it is open            
 
             return false;
         }
@@ -780,6 +774,7 @@ namespace RevitViewAndSheetManager
             }
         }
 
+        //starts a transaction group
         public void StartTransactions(string transactionName)
         {
             if (!transactionList.HasStarted())
@@ -823,7 +818,7 @@ namespace RevitViewAndSheetManager
             {
                 using (Transaction t = new Transaction(doc))
                 {
-                    //get the sheet name and check if we need to add a nubmer to the end
+                    //get the sheet name and check if we need to add a number to the end
                     string name = sheetName;
 
                     if (count > 1)
@@ -839,7 +834,7 @@ namespace RevitViewAndSheetManager
                     {
                         doc.Export(filePath, name, ele, options);
                     }
-                    catch (Exception e)
+                    catch
                     {
                         t.RollBack();
                         return false;
@@ -862,7 +857,7 @@ namespace RevitViewAndSheetManager
                 string str = System.IO.Path.GetDirectoryName(doc.PathName);
                 return str;
             }
-            catch(Exception e)
+            catch
             {
                 return string.Empty;
             }
@@ -871,12 +866,13 @@ namespace RevitViewAndSheetManager
         //returns the file name of the project
         public string GetProjectFileName()
         {
+            //attempt to get the projects file name
             try
             {
-                string str = (System.IO.Path.GetFileNameWithoutExtension(doc.PathName));
+                string str = System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
                 return str;
             }
-            catch (Exception e)
+            catch
             {
                 return string.Empty;
             }
@@ -960,9 +956,9 @@ namespace RevitViewAndSheetManager
         private ElementId GetViewFamilyType(string viewTypeName)
         {
             IEnumerable<ViewFamilyType> coll = new FilteredElementCollector(doc)
-                 .OfClass(typeof(ViewFamilyType))
-                 .Cast<ViewFamilyType>()
-                 .Where(v => v.Name.Equals(viewTypeName));
+                .OfClass(typeof(ViewFamilyType))
+                .Cast<ViewFamilyType>()
+                .Where(v => v.Name.Equals(viewTypeName));
 
             //check if we found the view family type
             if (coll != null)
@@ -1114,9 +1110,10 @@ namespace RevitViewAndSheetManager
             if (eID != null)//make sure we have been given elements to delete
                 using (Transaction t = new Transaction(doc))
                 {
-                    t.Start("Deleting given views.");
+                    t.Start("Deleting given view(s).");
                     doc.Delete(eID);
                     t.Commit();
+
                     return true;
                 }
             else
@@ -1132,6 +1129,7 @@ namespace RevitViewAndSheetManager
                     t.Start("Deleting given view.");
                     doc.Delete(eID);
                     t.Commit();
+
                     return true;
                 }
             else
