@@ -36,7 +36,7 @@ namespace RevitViewAndSheetManager
             if (commandData == null)
                 throw new ArgumentNullException("commandData");
 
-            //preparing 
+            //preparing
             uiDoc = commandData.Application.ActiveUIDocument;
             doc = uiDoc.Document;
             transactionList = new TransactionGroup(doc);
@@ -148,7 +148,6 @@ namespace RevitViewAndSheetManager
             {   //did not find a view or an element, show user an error        
                 if (debugMode)
                 {
-
                     string msg = string.Empty;
 
                     //preparing the error message
@@ -184,7 +183,6 @@ namespace RevitViewAndSheetManager
 
                 return false;
             }
-
         }
 
         //rotates all entities on a given view in 90 degree angles
@@ -403,8 +401,7 @@ namespace RevitViewAndSheetManager
                                    TaskDialogIcon.TaskDialogIconWarning,
                                    TaskDialogCommonButtons.Close);
                 return;
-            }
-            
+            }            
 
             //get all the dimensions
             IEnumerable<Dimension> coll = new FilteredElementCollector(doc)
@@ -869,12 +866,97 @@ namespace RevitViewAndSheetManager
             //attempt to get the projects file name
             try
             {
-                string str = System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
-                return str;
+                return System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
             }
             catch
             {
                 return string.Empty;
+            }
+        }
+
+        //ask the user to select a point and return the selected point
+        public XYZ PickPoint(string message)
+        {
+            XYZ xyz;
+
+            try
+            {
+                xyz = uiDoc.Selection.PickPoint(message);
+            }
+            catch
+            {
+                xyz = null;
+            }
+
+            return xyz;
+        }
+
+        //opens a view in the current project and makes it active in the ui
+        public void OpenView(string viewName)
+        {
+            //get the sheet
+            View view = GetView(viewName);
+
+            //make sure we have data to work with
+            if (view == null)
+                return;
+
+            //switch the active view and make sure to refresh the screen
+            uiDoc.ActiveView = view;
+            uiDoc.RefreshActiveView();
+        }
+
+        //opens a sheet in the current project and makes it active in the ui
+        public void OpenSheet(string sheetName)
+        {
+            //get the sheet
+            View view = GetSheet(sheetName);
+
+            //make sure we have data to work with
+            if (view == null)
+                return;
+
+            //switch the active view and make sure to refresh the screen
+            uiDoc.ActiveView = view;
+            uiDoc.RefreshActiveView();
+        }
+
+        //closes an open view with the given name, will not close if it is the ONLY open doc
+        public void CloseActiveTab(string tabName)
+        {
+            //get a list of all active ui views
+            IList<UIView> viewList = uiDoc.GetOpenUIViews();
+
+            //make sure we have data to work with
+            if (viewList == null)
+                return;
+
+            //MUST have at least 2 tabs open as we can not close the last tab
+            if (viewList.Count <= 1)
+                return;
+
+            //iterate through all uiviews and attempt to close the first one found with the given name
+            foreach(UIView uiView in viewList)
+            {
+                try
+                {
+                    //convert the tab into a view so we can check its name
+                    View view = doc.GetElement(uiView.ViewId) as View;
+
+                    //check if the tab has the name we are looking for
+                    if (view.Name == tabName)
+                    {
+                        //close it and quit the foreach statement
+                        uiView.Close();
+                        break;
+                    }
+                }
+                catch
+                {
+                    //exception caught, try next tab
+                    continue;
+                }
+                //TODO: debug messages here
             }
         }
 
