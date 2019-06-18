@@ -19,6 +19,7 @@ namespace RevitViewAndSheetManager
 
         private Document doc = null;
         private UIDocument uiDoc = null;
+        private UIApplication uiApp = null;
 
         private TransactionGroup transactionList;
 
@@ -37,8 +38,10 @@ namespace RevitViewAndSheetManager
                 throw new ArgumentNullException("commandData");
 
             //preparing
-            uiDoc = commandData.Application.ActiveUIDocument;
+            uiApp = commandData.Application;
+            uiDoc = uiApp.ActiveUIDocument;
             doc = uiDoc.Document;
+
             transactionList = new TransactionGroup(doc);
         }
 
@@ -67,6 +70,7 @@ namespace RevitViewAndSheetManager
 
                 try
                 {
+                    //attempt to find the title blocks id
                     ElementId tempTitleBlock = ElementId.InvalidElementId;
 
                     if (titleBlock != null)
@@ -81,6 +85,7 @@ namespace RevitViewAndSheetManager
                     if (viewSheet == null)
                         throw new Exception("Failed to create new ViewSheet.");
 
+                    //name the sheet as desired
                     viewSheet.Name = sheetName;
 
                     //if given a sheet number attempt to change it, other wise leave it at default
@@ -133,7 +138,7 @@ namespace RevitViewAndSheetManager
             View v = GetView(viewName);
             ElementId id = GetViewFamilyType(newLocation);
 
-            if (v != null && id != null)//makeu sure there is a view and a family to move it to
+            if (v != null && id != null)//make sure there is a view and a family to move it to
             {
                 using (Transaction t = new Transaction(doc))
                 {
@@ -877,19 +882,197 @@ namespace RevitViewAndSheetManager
         //ask the user to select a point and return the selected point
         public XYZ PickPoint(string message)
         {
-            XYZ xyz;
-
             try
             {
-                xyz = uiDoc.Selection.PickPoint(message);
+                return uiDoc.Selection.PickPoint(message);
             }
             catch
             {
-                xyz = null;
+                return null;
+            }
+        }
+
+        public XYZ PickPoint(ObjectSnapTypes type, string message)
+        {
+            try
+            {
+                return uiDoc.Selection.PickPoint(type, message);
+            }
+            catch
+            {
+                return null;
+            }            
+        }
+
+        public Reference PickObject(ObjectType ot, SelectionFilter sf, string message)
+        {
+            if (ot == ObjectType.Nothing || sf == SelectionFilter.Nothing || message == string.Empty)
+                return null;
+
+            ISelectionFilter filter = null;
+
+            switch(sf)
+            {
+                case SelectionFilter.Building:
+                    filter = new BuildingSelectionFilter();
+                    break;
             }
 
-            return xyz;
+            try
+            {
+                return uiDoc.Selection.PickObject(ot, filter, message);
+            }
+            catch
+            {
+                return null;
+            }
         }
+
+        public Reference PickObject(ObjectType ot, string message)
+        {
+            if (ot == ObjectType.Nothing || message == string.Empty)
+                return null;
+
+            try
+            {
+                return uiDoc.Selection.PickObject(ot, message);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        //asks the user to pick objects and returns all picked objects as IList<Reference>, allows entering a selection filter
+        public IList<Reference> PickObjects(ObjectType ot, SelectionFilter sf, string message)
+        {
+            if (ot == ObjectType.Nothing || sf == SelectionFilter.Nothing || message == string.Empty)
+                return null;
+
+            ISelectionFilter filter = null;
+
+            switch (sf)
+            {
+                case SelectionFilter.Building:
+                    filter = new BuildingSelectionFilter();
+                    break;
+            }
+
+            try
+            {
+                return uiDoc.Selection.PickObjects(ot, filter, message);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        //asks the user to pick objects and returns all picked objects as IList<Reference>
+        public IList<Reference> PickObjects(ObjectType ot, string message)
+        {
+            if (ot == ObjectType.Nothing || message == string.Empty)
+                return null;
+
+            try
+            {
+                return uiDoc.Selection.PickObjects(ot, message);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        //return a list of every element between two given points
+        public IEnumerable<Element> GetAllElementsBetweenTwoPoints(XYZ first, XYZ last)
+        {
+            //make sure we have data to work with
+            if (first == null || last == null)
+                return null;
+
+            IEnumerable<Element> eList = new List<Element>();
+
+            double minX, minY, minZ, maxX, maxY, maxZ;
+
+            if (first.X <= last.X)
+            {
+                minX = first.X;
+                maxX = last.X;
+            } else
+            {
+                maxX = first.X;
+                minX = last.X;
+            }
+
+            if (first.Y <= last.Y)
+            {
+                minY = first.Y;
+                maxY = last.Y;
+            }
+            else
+            {
+                maxY = first.Y;
+                minY = last.Y;
+            }                          
+
+            if (first.Z <= last.Z)
+            {
+                minZ = first.Z;
+                maxZ = last.Z;
+            }
+            else
+            {
+                maxZ = first.Z;
+                minZ = last.Z;
+            }
+
+            XYZ min = new XYZ(minX, minY, minZ);
+            XYZ max = new XYZ(maxX, maxY, maxZ);
+
+            Outline ol = new Outline(min, max);
+
+            BoundingBoxIntersectsFilter filter = new BoundingBoxIntersectsFilter(ol);
+
+            FilteredElementCollector coll = new FilteredElementCollector(doc, doc.ActiveView.Id);
+            eList = coll.WherePasses(filter).
+                            Where(e => e.get_Geometry(new Options { ComputeReferences = true }) != null);
+
+            return eList;
+        }
+
+        /*public Dimension CreateLinearDimension(XYZ first, XYZ last, ReferenceArray refArray)
+        {
+            return CreateLinearDimension(doc.ActiveView, first, last, refArray);
+        }
+
+        public Dimension CreateLinearDimension(View view, XYZ first, XYZ last, ReferenceArray refArray)
+        {
+            if (view == null || first == null || last == null || refArray == null)
+                return null;
+
+            Line line = Line.CreateBound(first, last);
+            if (line == null)
+                return null;
+
+            try
+            {
+                Dimension d; 
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Creating dimension.");
+                    d = doc.Create.NewDimension(view, line, refArray);
+                    t.Commit();
+                }
+
+                return d;
+            }
+            catch
+            {
+                return null;
+            }            
+        }*/
+
 
         //opens a view in the current project and makes it active in the ui
         public void OpenView(string viewName)
@@ -975,7 +1158,7 @@ namespace RevitViewAndSheetManager
                 && !v.IsTemplate
                 && v.ViewType != ViewType.DrawingSheet);
 
-            //check if we foudn the view
+            //check if we found the view
             if (views != null)
             {
                 View view = views.FirstOrDefault();
@@ -1217,7 +1400,32 @@ namespace RevitViewAndSheetManager
             else
                 return false;
         }
-    }
+
+        //classes for use with selection filters
+        private class BuildingSelectionFilter : ISelectionFilter
+        {
+            public bool AllowElement(Element e)
+            {
+                if (e is Wall)
+                    return true;
+                else if (e is RoofBase)
+                    return true;
+                else if (e is Floor)
+                    return true;
+                else if (e is SlabEdge)
+                    return true;
+                else if (e is FamilyInstance)
+                    return true;
+
+                return false;
+            }
+
+            public bool AllowReference(Reference r, XYZ p)
+            {
+                return true;
+            }
+        }
+    }    
 
     //enum used with rotating views
     public enum RotationAngle
@@ -1225,5 +1433,11 @@ namespace RevitViewAndSheetManager
         Left = 1,
         Down = 2,
         Right = 3
+    }
+
+    public enum SelectionFilter
+    {
+        Nothing = 0,
+        Building = 1
     }
 }
