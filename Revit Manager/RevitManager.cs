@@ -202,26 +202,35 @@ namespace RevitViewAndSheetManager
 
             //attempt to get the crop box directly
             Element cropBox = doc.GetElement(GetCropBox(v));
-            
-            BoundingBoxXYZ bbox = v.CropBox;
 
-            XYZ center = 0.5 * (bbox.Max + bbox.Min);
-
-            Line axis = Line.CreateBound(
-                center, center + XYZ.BasisZ);
-
-            RotateElement(cropBox.Id, axis, rotation);
+            //push the rotation to the main element rotation function
+            RotateElement(cropBox.Id, rotation);
         }
         
         //rotate an element by a specific angle
-        public bool RotateElement(ElementId id, Line axis, double angle)
+        public bool RotateElement(ElementId id, double angle)
         {
             try
             {
                 using (Transaction t = new Transaction(doc))
                 {
                     t.Start("Attempting to rotate element " + id.IntegerValue.ToString() + " by " + angle.ToString());
-                    ElementTransformUtils.RotateElement(doc, id, axis, angle);
+                    //find the emenet we are working with
+                    Element e = doc.GetElement(id);
+
+                    //get bounding box
+                    BoundingBoxXYZ bbox = e.get_BoundingBox(doc.ActiveView);
+
+                    //calculate the center of the counding box
+                    XYZ center = 0.5 * (bbox.Max + bbox.Min);
+
+                    //create a axis to use from the center to the left
+                    Line axis = Line.CreateBound(center, center + XYZ.BasisZ);
+
+                    //attempt to rotate the element usign the given parameters
+                    //as our axis is from center to left we need to rotate as neg to get the correct rotation direction
+                    ElementTransformUtils.RotateElement(doc, id, axis, -angle);
+
                     t.Commit();
                 }
                 return true;
@@ -233,9 +242,9 @@ namespace RevitViewAndSheetManager
         }
 
         //rotate an element by 90 degree angles
-        public bool RotateElement(ElementId id, Line axis, RotationAngle angle)
+        public bool RotateElement(ElementId id, RotationAngle angle)
         {
-             return RotateElement(id, axis, (Math.PI / 2) * (int)angle);
+             return RotateElement(id, (DegreesToRadians(90) * (int)angle));
         }
 
         //finds and renames a view
@@ -916,6 +925,10 @@ namespace RevitViewAndSheetManager
                 case SelectionFilter.Building:
                     filter = new BuildingSelectionFilter();
                     break;
+
+                case SelectionFilter.TextNote:
+                    filter = new TextNoteSelectionFilter();
+                    break;
             }
 
             try
@@ -955,6 +968,10 @@ namespace RevitViewAndSheetManager
             {
                 case SelectionFilter.Building:
                     filter = new BuildingSelectionFilter();
+                    break;
+
+                case SelectionFilter.TextNote:
+                    filter = new TextNoteSelectionFilter();
                     break;
             }
 
@@ -1143,9 +1160,122 @@ namespace RevitViewAndSheetManager
             }
         }
 
+        //creates a WinForm asking the user to enter data into the supplied text box
+        //this function does not check the returning string and returns it as was exactly added, it is up to the coder to error hceck this data once it is returned
+        public string GetUserInput(string windowName, string labelText)
+        {
+            string tempstr = "";
+
+            //prepare a new form
+            System.Windows.Forms.Form form = new System.Windows.Forms.Form();
+
+            //set some basic settings
+            form.Size = new System.Drawing.Size(400, 162);
+            form.Text = windowName;
+            form.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            form.MinimizeBox = false;
+            form.MaximizeBox = false;
+
+            //create the buttons
+            System.Windows.Forms.Button bOk = new System.Windows.Forms.Button();
+            System.Windows.Forms.Button bCancel = new System.Windows.Forms.Button();
+
+            //create the label
+            System.Windows.Forms.Label lLabel = new System.Windows.Forms.Label();
+
+            //create the text box
+            System.Windows.Forms.TextBox tbTextBox = new System.Windows.Forms.TextBox();
+
+            //add our controls
+            form.Controls.Add(bOk);
+            form.Controls.Add(bCancel);
+            form.Controls.Add(lLabel);
+            form.Controls.Add(tbTextBox);
+
+            //setup the controls as needed
+            bOk.Text = "Ok";
+            bOk.DialogResult = System.Windows.Forms.DialogResult.OK;
+            bOk.Location = new System.Drawing.Point(10, 90);
+
+            bCancel.Text = "Cancel";
+            bCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+            bCancel.Location = new System.Drawing.Point(95, 90);
+
+            lLabel.Text = labelText;
+            lLabel.Location = new System.Drawing.Point(10, 10);
+            lLabel.Size = new System.Drawing.Size(380, 46);
+
+            tbTextBox.Text = "";
+            tbTextBox.Location = new System.Drawing.Point(10, 56);
+            tbTextBox.Size = new System.Drawing.Size(370, 23);
+
+            //setup the enter and exc button hotkeysfor the form
+            form.AcceptButton = bOk;
+            form.CancelButton = bCancel;
+
+            //use the JtWindowHandle class to get a propper IWin32Window reference for the revit programs main window
+            System.Windows.Forms.IWin32Window revitWindow = new JtWindowHandle(uiApp.MainWindowHandle);
+
+            //check if we should grab the data from the textbox
+            if (form.ShowDialog() == System.Windows.Forms.DialogResult.OK)            
+                tempstr = tbTextBox.Text;            
+
+            return tempstr;
+        }
+
+        //returns the element in the document of the given reference
+        public Element GetElementViaReference(Reference r)
+        {
+            return doc.GetElement(r.ElementId);
+        }
+
+        //returns the given degrees as radians
+        public double DegreesToRadians(double degrees)
+        {
+            return (degrees * Math.PI) / 180;
+        }
+
+        //returns the given radians as degrees
+        public double RadiansToDegrees(double radians)
+        {
+            return (radians * 180) / Math.PI;
+        }
+
         /////////////////////
         //private functions//
         /////////////////////
+
+
+        /// <summary>
+        /// /// <summary>
+        /// Wrapper class for converting 
+        /// IntPtr to IWin32Window.
+        /// code thanks to Jeremy Tammik
+        /// https://thebuildingcoder.typepad.com/blog/2012/05/the-schedule-api-and-access-to-schedule-data.html
+        /// </summary>
+        private class JtWindowHandle : System.Windows.Forms.IWin32Window
+        {
+            IntPtr _hwnd;
+
+            public JtWindowHandle(IntPtr h)
+            {
+                System.Diagnostics.Debug.Assert(IntPtr.Zero != h,
+                  "expected non-null window handle");
+
+                _hwnd = h;
+            }
+
+            public IntPtr Handle
+            {
+                get
+                {
+                    return _hwnd;
+                }
+            }
+        }
+        /// </summary>
+        /// <param name="viewName"></param>
+        /// <returns></returns>
 
         //searches for a view with the given name and returns its id
         private ElementId GetViewId(string viewName)
@@ -1367,7 +1497,7 @@ namespace RevitViewAndSheetManager
                 return tb.FirstOrDefault().Id;
             else
                 return null;
-        }
+        }        
 
         //wipes all elements with ids from the list of given
         private bool Delete(List<ElementId> eID)
@@ -1425,6 +1555,22 @@ namespace RevitViewAndSheetManager
                 return true;
             }
         }
+
+        private class TextNoteSelectionFilter : ISelectionFilter
+        {
+            public bool AllowElement(Element e)
+            {
+                if (e is TextNote)
+                    return true;
+
+                return false;
+            }
+
+            public bool AllowReference(Reference r, XYZ p)
+            {
+                return true;
+            }
+        }
     }    
 
     //enum used with rotating views
@@ -1438,6 +1584,7 @@ namespace RevitViewAndSheetManager
     public enum SelectionFilter
     {
         Nothing = 0,
-        Building = 1
+        Building = 1,
+        TextNote = 2
     }
 }
