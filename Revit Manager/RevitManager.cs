@@ -25,6 +25,11 @@ namespace RevitViewAndSheetManager
 
         public bool debugMode = false;
 
+        public Document Doc { get => doc;}
+        public UIDocument UiDoc { get => uiDoc; }
+        public UIApplication UiApp { get => uiApp; }
+
+
         //TODO: error handling, have a list of errors and a way to get last error
 
         ////////////////
@@ -1555,7 +1560,6 @@ namespace RevitViewAndSheetManager
                 return true;
             }
         }
-
         private class TextNoteSelectionFilter : ISelectionFilter
         {
             public bool AllowElement(Element e)
