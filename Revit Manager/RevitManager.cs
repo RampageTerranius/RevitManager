@@ -768,7 +768,7 @@ namespace RevitViewAndSheetManager
         }
 
         //shows a message box using the given parameters
-        public void ShowMessageBox(string dialogName, string id, string message, TaskDialogIcon icon, TaskDialogCommonButtons buttons)
+        public TaskDialogResult ShowMessageBox(string dialogName, string id, string message, TaskDialogIcon icon, TaskDialogCommonButtons buttons)
         {
             //give an error message if we do not
             TaskDialog td = new TaskDialog(dialogName);
@@ -776,7 +776,19 @@ namespace RevitViewAndSheetManager
             td.MainIcon = icon;
             td.CommonButtons = buttons;
             td.MainContent = message;
-            td.Show();
+            return td.Show();
+        }
+
+        //shows a defaulted message box using the given strings
+        //the box will have no icon and will be a single ok button
+        public TaskDialogResult ShowMessageBox(string dialogName, string message)
+        {
+            TaskDialog td = new TaskDialog(dialogName);
+            td.Id = dialogName;
+            td.MainIcon = TaskDialogIcon.TaskDialogIconNone;
+            td.CommonButtons = TaskDialogCommonButtons.Ok;
+            td.MainContent = message;
+            return td.Show();
         }
 
         //directly moves an element around a sheet, DOES NOT MOVE IT BETWEEN SHEETS
@@ -920,7 +932,7 @@ namespace RevitViewAndSheetManager
 
         public Reference PickObject(ObjectType ot, SelectionFilter sf, string message)
         {
-            if (ot == ObjectType.Nothing || sf == SelectionFilter.Nothing || message == string.Empty)
+            if (ot == ObjectType.Nothing || message == string.Empty)
                 return null;
 
             ISelectionFilter filter = null;
@@ -964,7 +976,7 @@ namespace RevitViewAndSheetManager
         //asks the user to pick objects and returns all picked objects as IList<Reference>, allows entering a selection filter
         public IList<Reference> PickObjects(ObjectType ot, SelectionFilter sf, string message)
         {
-            if (ot == ObjectType.Nothing || sf == SelectionFilter.Nothing || message == string.Empty)
+            if (ot == ObjectType.Nothing || message == string.Empty)
                 return null;
 
             ISelectionFilter filter = null;
@@ -1246,6 +1258,68 @@ namespace RevitViewAndSheetManager
             return (radians * 180) / Math.PI;
         }
 
+        //returns the state of the given room
+        //with thanks to jeremy tammik
+        //https://thebuildingcoder.typepad.com/blog/2016/04/how-to-distinguish-redundant-rooms.html
+        public RoomState DistinguishRoom(Autodesk.Revit.DB.Architecture.Room room)
+        {
+            //check if the room is Placed
+            if (room.Area > 0)
+                return RoomState.Placed;
+            //if not check if its NotPlaced
+            else if (room.Location == null)
+                return RoomState.NotPlaced;
+            //other wise it must be Redundant or NotEnclosed
+            else 
+            {
+
+                SpatialElementBoundaryOptions opt = new SpatialElementBoundaryOptions();
+
+                IList<IList<BoundarySegment>> segs
+                  = room.GetBoundarySegments(opt);
+
+                if (segs == null)
+                    return RoomState.NotEnclosed;
+                else if (segs.Count == 0)
+                    return RoomState.Redundant;
+            }
+
+            //we didnt find the state
+            return RoomState.Unknown;
+        }
+
+        //wipes all elements with ids from the list of given
+        public bool Delete(List<ElementId> eID)
+        {
+            if (eID != null)//make sure we have been given elements to delete
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Deleting given element(s).");
+                    doc.Delete(eID);
+                    t.Commit();
+
+                    return true;
+                }
+            else
+                return false;
+        }
+
+        //wipes a specific element with the given id
+        public bool Delete(ElementId eID)
+        {
+            if (eID != null)//make sure an element was given
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Deleting given element.");
+                    doc.Delete(eID);
+                    t.Commit();
+
+                    return true;
+                }
+            else
+                return false;
+        }
+
         /////////////////////
         //private functions//
         /////////////////////
@@ -1502,39 +1576,7 @@ namespace RevitViewAndSheetManager
                 return tb.FirstOrDefault().Id;
             else
                 return null;
-        }        
-
-        //wipes all elements with ids from the list of given
-        private bool Delete(List<ElementId> eID)
-        {
-            if (eID != null)//make sure we have been given elements to delete
-                using (Transaction t = new Transaction(doc))
-                {
-                    t.Start("Deleting given view(s).");
-                    doc.Delete(eID);
-                    t.Commit();
-
-                    return true;
-                }
-            else
-                return false;
-        }
-
-        //wipes a specific element with the given id
-        private bool Delete(ElementId eID)
-        {
-            if (eID != null)//make sure an element was given
-                using (Transaction t = new Transaction(doc))
-                {
-                    t.Start("Deleting given view.");
-                    doc.Delete(eID);
-                    t.Commit();
-
-                    return true;
-                }
-            else
-                return false;
-        }
+        }             
 
         //classes for use with selection filters
         private class BuildingSelectionFilter : ISelectionFilter
@@ -1587,8 +1629,16 @@ namespace RevitViewAndSheetManager
 
     public enum SelectionFilter
     {
-        Nothing = 0,
-        Building = 1,
-        TextNote = 2
+        Building,
+        TextNote
+    }
+
+    public enum RoomState
+    {
+        Placed,
+        NotPlaced,
+        NotEnclosed,
+        Redundant,
+        Unknown
     }
 }
