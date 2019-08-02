@@ -932,9 +932,6 @@ namespace RevitViewAndSheetManager
 
         public Reference PickObject(ObjectType ot, SelectionFilter sf, string message)
         {
-            if (ot == ObjectType.Nothing || message == string.Empty)
-                return null;
-
             ISelectionFilter filter = null;
 
             switch(sf)
@@ -948,24 +945,25 @@ namespace RevitViewAndSheetManager
                     break;
             }
 
-            try
-            {
-                return uiDoc.Selection.PickObject(ot, filter, message);
-            }
-            catch
-            {
-                return null;
-            }
+            return PickObject(ot, filter, message);
         }
 
         public Reference PickObject(ObjectType ot, string message)
+        {
+            return PickObject(ot, (ISelectionFilter)null, message);
+        }
+
+        public Reference PickObject(ObjectType ot, ISelectionFilter sf, string message)
         {
             if (ot == ObjectType.Nothing || message == string.Empty)
                 return null;
 
             try
             {
-                return uiDoc.Selection.PickObject(ot, message);
+                if (sf == null)
+                    return uiDoc.Selection.PickObject(ot, message);
+                else
+                    return uiDoc.Selection.PickObject(ot, sf, message);
             }
             catch
             {
@@ -976,9 +974,6 @@ namespace RevitViewAndSheetManager
         //asks the user to pick objects and returns all picked objects as IList<Reference>, allows entering a selection filter
         public IList<Reference> PickObjects(ObjectType ot, SelectionFilter sf, string message)
         {
-            if (ot == ObjectType.Nothing || message == string.Empty)
-                return null;
-
             ISelectionFilter filter = null;
 
             switch (sf)
@@ -992,25 +987,26 @@ namespace RevitViewAndSheetManager
                     break;
             }
 
-            try
-            {
-                return uiDoc.Selection.PickObjects(ot, filter, message);
-            }
-            catch
-            {
-                return null;
-            }
+            return PickObjects(ot, filter, message);
         }
 
         //asks the user to pick objects and returns all picked objects as IList<Reference>
         public IList<Reference> PickObjects(ObjectType ot, string message)
+        {
+            return PickObjects(ot, (ISelectionFilter)null, message);
+        }
+
+        public IList<Reference> PickObjects(ObjectType ot, ISelectionFilter sf, string message)
         {
             if (ot == ObjectType.Nothing || message == string.Empty)
                 return null;
 
             try
             {
-                return uiDoc.Selection.PickObjects(ot, message);
+                if (sf == null)
+                    return uiDoc.Selection.PickObjects(ot, message);
+                else
+                    return uiDoc.Selection.PickObjects(ot, sf, message);
             }
             catch
             {
