@@ -13,10 +13,6 @@ namespace RevitViewAndSheetManager
 {
     public class RevitManager
     {
-        /////////////
-        //variables//
-        /////////////
-
         private Document doc = null;
         private UIDocument uiDoc = null;
         private UIApplication uiApp = null;
@@ -29,20 +25,19 @@ namespace RevitViewAndSheetManager
         public UIDocument UiDoc { get => uiDoc; }
         public UIApplication UiApp { get => uiApp; }
 
+        // TODO: error handling, have a list of errors and a way to get last error.
 
-        //TODO: error handling, have a list of errors and a way to get last error
-
-        ////////////////
-        //constructors//
-        ////////////////
-
+        /// <summary>
+        /// Default Constructor.
+        /// Requires the user to give the current ExternalCommandData so that it may prepare uiApp, uiDoc and doc.
+        /// </summary>
         public RevitManager(ExternalCommandData commandData)
         {
-            //check if we have been given command data
+            // Check if we have been given command data.
             if (commandData == null)
                 throw new ArgumentNullException("commandData");
 
-            //preparing
+            // Preparing necessary variables.
             uiApp = commandData.Application;
             uiDoc = uiApp.ActiveUIDocument;
             doc = uiDoc.Document;
@@ -50,23 +45,25 @@ namespace RevitViewAndSheetManager
             transactionList = new TransactionGroup(doc);
         }
 
-        ////////////////////
-        //public functions//
-        ////////////////////
-
-        //creates a new sheet giving it a default sheet number and no title block
+        /// <summary>
+        /// creates a new sheet giving it a default sheet number and no title block.
+        /// </summary>
         public bool CreateSheet(string sheetName)
         {
             return CreateSheet(sheetName, null, null);
         }
 
-        //creates a new sheet giving it a default sheet number and the specified title block
+        /// <summary>
+        /// Creates a new sheet giving it a default sheet number and the specified title block.
+        /// </summary>
         public bool CreateSheet(string sheetName, string titleBlock)
         {
             return CreateSheet(sheetName, null, titleBlock);
         }
 
-        //creates a new sheet giving it the specified sheet number and title block
+        /// <summary>
+        /// Creates a new sheet giving it the specified sheet number and title block.
+        /// </summary>
         public bool CreateSheet(string sheetName, string sheetNumber, string titleBlock)
         {
             using (Transaction t = new Transaction(doc))
@@ -75,7 +72,7 @@ namespace RevitViewAndSheetManager
 
                 try
                 {
-                    //attempt to find the title blocks id
+                    // Attempt to find the title blocks id.
                     ElementId tempTitleBlock = ElementId.InvalidElementId;
 
                     if (titleBlock != null)
@@ -85,15 +82,15 @@ namespace RevitViewAndSheetManager
                             throw new Exception("Unable to find specified Title Block: " + titleBlock);
                     }
 
-                    // Create a sheet view
+                    // Create a sheet view.
                     ViewSheet viewSheet = ViewSheet.Create(doc, tempTitleBlock);
                     if (viewSheet == null)
                         throw new Exception("Failed to create new ViewSheet.");
 
-                    //name the sheet as desired
+                    // Name the sheet as desired.
                     viewSheet.Name = sheetName;
 
-                    //if given a sheet number attempt to change it, other wise leave it at default
+                    // If given a sheet number attempt to change it, other wise leave it at default.
                     if (sheetNumber != null)
                         viewSheet.SheetNumber = sheetNumber;
 
@@ -103,6 +100,7 @@ namespace RevitViewAndSheetManager
                 }
                 catch
                 {
+                    // Something went wrong, let the user know
                     if (debugMode)
                         ShowMessageBox("Warning!",
                                        "ID_TaskDialog_Warning",
@@ -110,6 +108,7 @@ namespace RevitViewAndSheetManager
                                        TaskDialogIcon.TaskDialogIconWarning,
                                        TaskDialogCommonButtons.Close);
                 
+                    // As something has gone wrong we want to rollback to reverse any pending changes.
                     t.RollBack();
 
                     return false;
@@ -117,7 +116,9 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //wipe the first view with the given name
+        /// <summary>
+        /// Wipe the first view with the given name.
+        /// </summary>
         public bool DeleteView(string viewName)
         {
             ElementId v = GetViewId(viewName);
@@ -128,7 +129,9 @@ namespace RevitViewAndSheetManager
                 return false;
         }
 
-        //wipe the first sheet with the given name
+        /// <summary>
+        /// Wipe the first sheet with the given name.
+        /// </summary>
         public bool DeleteSheet(string sheetName)
         {
             if (sheetName != null)
@@ -137,13 +140,16 @@ namespace RevitViewAndSheetManager
                 return false;
         }
 
-        //moves the given view into a new family tree
+        /// <summary>
+        /// Moves the given view into a new family tree.
+        /// </summary>
         public bool MoveView(string viewName, string newLocation)
         {
             View v = GetView(viewName);
             ElementId id = GetViewFamilyType(newLocation);
 
-            if (v != null && id != null)//make sure there is a view and a family to move it to
+            // Make sure there is a view and a family to move it to.
+            if (v != null && id != null)
             {
                 using (Transaction t = new Transaction(doc))
                 {
@@ -155,12 +161,13 @@ namespace RevitViewAndSheetManager
                 }
             }
             else
-            {   //did not find a view or an element, show user an error        
+            {   
+                // Did not find a view or an element, show user an error .       
                 if (debugMode)
                 {
                     string msg = string.Empty;
 
-                    //preparing the error message
+                    // Preparing the error message.
                     int i = 0;
                     if (v == null)
                         i++;
@@ -170,20 +177,23 @@ namespace RevitViewAndSheetManager
 
                     switch (i)
                     {
-                        case 1://unable to find view
+                        case 1:
+                            // Unable to find view.
                             msg = "Unable to move view '" + viewName + "', could not find view.";
                             break;
 
-                        case 2://unable to find family
+                        case 2:
+                            // Unable to find family.
                             msg = "Unable to move view '" + viewName + "', could not find family id.";
                             break;
 
-                        case 3://unable to find view AND template
+                        case 3:
+                            // Unable to find view AND template.
                             msg = "Unable to move view '" + viewName + "', could not find view AND family id.";
                             break;
                     }
 
-                    //show the message
+                    // Show the message.
                     ShowMessageBox("Warning!",
                                    "ID_TaskDialog_Warning",
                                    msg,
@@ -195,24 +205,29 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //rotates all entities on a given view in 90 degree angles
-        //TODO: fix this function, views are not currently rotating as desired, or at all. may require duplication of view BEFORE attempting to rotate? needs testing
+        /// <summary>
+        /// Rotates all entities on a given view in 90 degree angles.
+        /// Accepts ONLY RotationAngle.
+        /// </summary>
         public void RotateView(string viewName, RotationAngle rotation)
         {
-            //get the id of the view we need to rotate
+            // Get the id of the view we need to rotate.
             View v = GetView(viewName);
 
+            // Stop here if there is no view to work with.
             if (v == null)
-                return;//no view to work with
+                return;
 
-            //attempt to get the crop box directly
+            // Attempt to get the crop box directly.
             Element cropBox = doc.GetElement(GetCropBox(v));
 
-            //push the rotation to the main element rotation function
+            // Push the rotation to the main element rotation function.
             RotateElement(cropBox.Id, rotation);
         }
-        
-        //rotate an element by a specific angle
+
+        /// <summary>
+        /// Rotate an element by a specific angle.
+        /// </summary>
         public bool RotateElement(ElementId id, double angle)
         {
             try
@@ -220,20 +235,20 @@ namespace RevitViewAndSheetManager
                 using (Transaction t = new Transaction(doc))
                 {
                     t.Start("Attempting to rotate element " + id.IntegerValue.ToString() + " by " + angle.ToString());
-                    //find the emenet we are working with
+                    // Find the element we are working with.
                     Element e = doc.GetElement(id);
 
-                    //get bounding box
+                    // Get bounding box.
                     BoundingBoxXYZ bbox = e.get_BoundingBox(doc.ActiveView);
 
-                    //calculate the center of the counding box
+                    // Calculate the center of the bounding box.
                     XYZ center = 0.5 * (bbox.Max + bbox.Min);
 
-                    //create a axis to use from the center to the left
+                    // Create a axis to use from the center to the left.
                     Line axis = Line.CreateBound(center, center + XYZ.BasisZ);
 
-                    //attempt to rotate the element usign the given parameters
-                    //as our axis is from center to left we need to rotate as neg to get the correct rotation direction
+                    // Attempt to rotate the element using the given parameters.
+                    // As our axis is from center to left we need to rotate as negative to get the correct rotation direction.
                     ElementTransformUtils.RotateElement(doc, id, axis, -angle);
 
                     t.Commit();
@@ -246,18 +261,24 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //rotate an element by 90 degree angles
+        /// <summary>
+        /// Rotate an element by 90 degree angles.
+        /// </summary>
         public bool RotateElement(ElementId id, RotationAngle angle)
         {
              return RotateElement(id, (DegreesToRadians(90) * (int)angle));
         }
 
-        //finds and renames a view
+        /// <summary>
+        /// Finds and renames a view.
+        /// </summary>
         public bool RenameView(string viewName, string newViewName)
         {
-            View v = GetView(viewName);//find the view
+            // Get the view first
+            View v = GetView(viewName);
 
-            if (v != null)//make sure we have a view to work with
+            // Make sure we have a view to work with first.
+            if (v != null)
             {
                 using (Transaction t = new Transaction(doc))
                 {
@@ -269,7 +290,8 @@ namespace RevitViewAndSheetManager
                 return true;
             }
             else
-            {   //did not find aview, give the user an error
+            {   
+                // Did not find a view, give the user an error.
                 if (debugMode)                
                     ShowMessageBox("Warning!",
                                    "ID_TaskDialog_Warning",
@@ -281,21 +303,27 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //duplicates the view naming it as given, duplicate will be in same location
+        /// <summary>
+        /// Duplicates the view naming it as given, duplicate will be in same location.
+        /// </summary>
         public bool DuplicateViewByName(string viewName, string newViewName, ViewDuplicateOption duplicateOption)
         {
-            //get the view we will duplicate first
+            // Get the view we will duplicate first.
             View v = GetView(viewName);
 
-            if (v != null)//make sure there is indeed a view
+            // Make sure there is indeed a view.
+            if (v != null)
             {
-                using (Transaction t = new Transaction(doc))//duplicate the view
+                // Duplicate the view.
+                using (Transaction t = new Transaction(doc))
                 {
+                    // Duplicate the view first.
                     t.Start("Duplicating view.");
                     ElementId id = v.Duplicate(duplicateOption);
 
+                    // Rename the view to the new name.
                     View tempView = doc.GetElement(id) as View;
-                    tempView.Name = newViewName;//rename the view to the new name
+                    tempView.Name = newViewName;
 
                     t.Commit();
                 }
@@ -304,6 +332,7 @@ namespace RevitViewAndSheetManager
             }
             else
             {
+                // There was no view, give the user an error screen.
                 if (debugMode)
                     ShowMessageBox("Warning!",
                                    "ID_TaskDialog_Warning",
@@ -315,13 +344,16 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //changes the template of the given view
+        /// <summary>
+        /// Changes the template of the given view.
+        /// </summary>
         public bool ChangeViewTemplate(string viewName, string templateName)
         {
             View v = GetView(viewName);
             ElementId id = GetViewTemplateId(templateName);
 
-            if (v != null && id != null)//check that we have a view and a template to work with
+            // Check that we have a view and a template to work with first.
+            if (v != null && id != null)
             {
                 using (Transaction t = new Transaction(doc))
                 {
@@ -333,13 +365,14 @@ namespace RevitViewAndSheetManager
                 return true;
             }
             else
-            {   //there was no view or template, warn the user
-                //create error box                
+            {   
+                // There was no view or template, warn the user.
+                // Create error box.
                 if (debugMode)
                 {                    
                     string msg = string.Empty;
 
-                    //preparing the error message
+                    // Preparing the error message.
                     int i = 0;
                     if (v == null)
                         i++;
@@ -349,19 +382,23 @@ namespace RevitViewAndSheetManager
 
                     switch (i)
                     {
-                        case 1://unable to find view
+                        case 1:
+                            // Unable to find view.
                             msg = "Unable to change template for view '" + viewName + "', the view may not exist.";
                             break;
 
-                        case 2://unable to find template
+                        case 2:
+                            // Unable to find template.
                             msg = "Unable to change template for view '" + viewName + "', the template may not exist.";
                             break;
 
-                        case 3://unable to find view AND template
+                        case 3:
+                            // Unable to find view AND template.
                             msg = "Unable to change template for view '" + viewName + "', the view AND template may not exist.";
                             break;
                     }
 
+                    // Show the message box.
                     ShowMessageBox("Warning!",
                                    "ID_TaskDialog_Warning",
                                    msg,
@@ -373,12 +410,16 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //removes all independent tags from the view
+        /// <summary>
+        /// Removes all independent tags from the view.
+        /// </summary>
         public void RemoveAllIndependentTags(string viewName)
         {
-            ElementId v = GetViewId(viewName);//get the view we will be working with
+            // Get the view we will be working with.
+            ElementId v = GetViewId(viewName);
 
-            if (v == null)//check if we have a view to work with
+            // Check if we have a view to work with.
+            if (v == null)
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
@@ -391,13 +432,13 @@ namespace RevitViewAndSheetManager
             }
             
 
-            //grab all independent tags owned by the view we are worknig with
+            // Grab all independent tags owned by the view we are worknig with.
             IEnumerable<IndependentTag> coll = new FilteredElementCollector(doc)
                 .OfClass(typeof(IndependentTag))
                 .Cast<IndependentTag>()
                 .Where(i => i.OwnerViewId.Equals(v));
 
-            //wipe all found tags
+            // Wipe all found tags.
             List<ElementId> coll2 = new List<ElementId>();
 
             foreach (IndependentTag i in coll)
@@ -406,12 +447,16 @@ namespace RevitViewAndSheetManager
             Delete(coll2);
         }
 
-        //removes ALL dimensions from given view
+        /// <summary>
+        /// Removes ALL dimensions from given view.
+        /// </summary>
         public void RemoveAllDimensions(string viewName)
         {
-            ElementId v = GetViewId(viewName);//get the view to work with
+            // Get the view to work with.
+            ElementId v = GetViewId(viewName);
 
-            if (v == null)//check if we have a view to work with
+            // Check if we have a view to work with.
+            if (v == null)
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
@@ -422,13 +467,13 @@ namespace RevitViewAndSheetManager
                 return;
             }            
 
-            //get all the dimensions
+            // Get all the dimensions.
             IEnumerable<Dimension> coll = new FilteredElementCollector(doc)
                 .OfClass(typeof(Dimension))
                 .Cast<Dimension>()
                 .Where(i => i.OwnerViewId.Equals(v));
 
-            //wipe all found dimensions
+            // Wipe all found dimensions.
             List<ElementId> coll2 = new List<ElementId>();
 
             foreach (Dimension i in coll)
@@ -437,12 +482,16 @@ namespace RevitViewAndSheetManager
             Delete(coll2);
         }
 
-        //removes all dimensions of a specific type fro ma given view
+        /// <summary>
+        /// Removes all dimensions of a specific type from a given view.
+        /// </summary>
         public void RemoveAllDimensionsOfType(string viewName, DimensionStyleType dimType)
         {
-            ElementId v = GetViewId(viewName);//get the view to work with
+            // Get the view to work with.
+            ElementId v = GetViewId(viewName);
 
-            if (v == null)//check if we have a view to work with
+            // Check if we have a view to work with.
+            if (v == null)
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
@@ -454,14 +503,14 @@ namespace RevitViewAndSheetManager
                 return;
             }
 
-            //get all the dimensions we need to wipe
+            // Get all the dimensions we need to wipe.
             IEnumerable<Dimension> coll = new FilteredElementCollector(doc)
                 .OfClass(typeof(Dimension))
                 .Cast<Dimension>()
                 .Where(i => i.OwnerViewId.Equals(v)
                 && i.DimensionType.StyleType == dimType);
 
-            //wipe all found dimensions
+            // Wipe all found dimensions.
             List<ElementId> coll2 = new List<ElementId>();
 
             foreach (Dimension i in coll)
@@ -470,12 +519,16 @@ namespace RevitViewAndSheetManager
             Delete(coll2);
         }
 
-        //removes ALL text notes from a given view
+        /// <summary>
+        /// Removes ALL text notes from a given view.
+        /// </summary>
         public void RemoveAllTextNotes(string viewName)
         {
-            ElementId v = GetViewId(viewName);//get the view to work with
+            // Get the view to work with.
+            ElementId v = GetViewId(viewName);
 
-            if (v == null)//check if we have a view to work with    
+            // Check if we have a view to work with.
+            if (v == null)  
             {
                 if (debugMode)
                     ShowMessageBox("Warning!",
@@ -486,13 +539,13 @@ namespace RevitViewAndSheetManager
                 return;
             }
 
-            //get all text notes
+            // Get all text notes.
             IEnumerable<TextNote> coll = new FilteredElementCollector(doc)
                 .OfClass(typeof(TextNote))
                 .Cast<TextNote>()
                 .Where(b => b.OwnerViewId == v);
 
-            //wipe all found text notes
+            // Wipe all found text notes.
             List<ElementId> coll2 = new List<ElementId>();
 
             foreach (TextNote i in coll)
@@ -501,10 +554,12 @@ namespace RevitViewAndSheetManager
             Delete(coll2);
         }
 
-        //wipe all generic annotation familys from the given view
+        /// <summary>
+        /// Wipe all generic annotation familys from the given view.
+        /// </summary>
         public void RemoveAllAnnotations(string viewName)
         {
-            //make sure we have a view to work with
+            // Make sure we have a view to work with.
             ElementId v = GetViewId(viewName);
 
             if (v == null)
@@ -518,13 +573,13 @@ namespace RevitViewAndSheetManager
                 return;
             }
 
-            //find all annotation symbols in the given view
+            // Find all annotation symbols in the given view.
             IEnumerable<FamilyInstance> coll = new FilteredElementCollector(doc, v)
                 .OfClass(typeof(FamilyInstance))
                 .Cast<FamilyInstance>()
                 .Where(b => b.Symbol.GetType().Name.Equals("AnnotationSymbolType"));
 
-            //wipe all found symbols
+            // Wipe all found symbols.
             List<ElementId> coll2 = new List<ElementId>();
 
             foreach (FamilyInstance i in coll)
@@ -533,10 +588,12 @@ namespace RevitViewAndSheetManager
             Delete(coll2);
         }
 
-        //removes all groups from the given view
+        /// <summary>
+        /// Removes all groups from the given view.
+        /// </summary>
         public void RemoveAllGroups(string viewName)
         {
-            //make sure we have a view to work with
+            // Make sure we have a view to work with.
             ElementId v = GetViewId(viewName);
 
             if (v == null)
@@ -551,12 +608,12 @@ namespace RevitViewAndSheetManager
                 return;
             }
 
-            //find all annotation symbols in the given view
+            // Find all annotation symbols in the given view.
             IEnumerable<GroupType> coll = new FilteredElementCollector(doc, v)
                 .OfClass(typeof(GroupType))
                 .Cast<GroupType>();
 
-            //wipe all found symbols
+            // Wipe all found symbols.
             List<ElementId> coll2 = new List<ElementId>();
 
             foreach (Element i in coll)
@@ -565,28 +622,32 @@ namespace RevitViewAndSheetManager
             Delete(coll2);
         }
 
-        //adds the given view to the given sheet then returns the ElementId, places the view directly in the middle of the sheet
+        /// <summary>
+        /// Adds the given view to the given sheet then returns the ElementId, places the view directly in the middle of the sheet.
+        /// </summary>
         public ElementId AddViewToSheet(string sheetName, string viewName)
         {
             return AddViewToSheet(sheetName, viewName, null);
         }
 
-        //adds the given view to the given sheet then returns the ElementId, places the view at the given coordiantes on the sheet
+        /// <summary>
+        /// Adds the given view to the given sheet then returns the ElementId, places the view at the given coordiantes on the sheet.
+        /// </summary>
         public ElementId AddViewToSheet(string sheetName, string viewName, XYZ xyz)
         {
-            //get the sheet and the view
+            // Get the sheet and the view.
             ElementId s = GetSheetId(sheetName);
             ElementId v = GetViewId(viewName);
 
-            //check if we have elements to work with
+            // Check if we have elements to work with.
             if (s == null || v == null)
                 return null;
 
-            //check if we have been given a specific location to place the viewport
+            // Check if we have been given a specific location to place the viewport.
             if (xyz == null)
                 xyz = new XYZ(0, 0, 0);
 
-            //create the viewport
+            // Create the viewport.
             using (Transaction t = new Transaction(doc))
             {
                 t.Start("Creating ViewPort.");
@@ -597,12 +658,14 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //returns the ID of the crop box of a given view
+        /// <summary>
+        /// Returns the ID of the crop box of a given view.
+        /// </summary>
         //With thanks to Jeremy Tammik/Konrads Samulis
         //https://thebuildingcoder.typepad.com/blog/2018/02/efficiently-retrieve-crop-box-for-given-view.html
         public ElementId GetCropBox(View view)
         {        
-            //check that we actually have a view to work with
+            // Check that we actually have a view to work with.
             if (view == null)
                 return null;
 
@@ -610,47 +673,54 @@ namespace RevitViewAndSheetManager
                 .WherePasses(new ElementParameterFilter(
                                 new FilterElementIdRule(
                                     new ParameterValueProvider(new ElementId((int)BuiltInParameter.ID_PARAM)), new FilterNumericEquals(), view.Id)))
-               .ToElementIds()
-               .Where<ElementId>(b => b.IntegerValue != view.Id.IntegerValue)
-               .FirstOrDefault<ElementId>();
+                                       .ToElementIds()
+                                       .Where<ElementId>(b => b.IntegerValue != view.Id.IntegerValue)
+                                       .FirstOrDefault<ElementId>();
         }
 
-        //gets crop box using the name of the view instead of the view its self
+        /// <summary>
+        /// Gets crop box using the name of the view instead of the view its self.
+        /// </summary>
         public ElementId GetCropBox(string viewName)
         {
-            View v = GetView(viewName);//does not need to check if we have a view as GetCropBox(View view) will check for us
+            // Does not need to check if we have a view as GetCropBox(View view) will check for us.
+            View v = GetView(viewName);
 
             return GetCropBox(v);
         }
 
-        //load all views and return them in a viewset. skips all templates, use GetAllViewTemplates for this
+        /// <summary>
+        /// Load all views and return them in a viewset. skips all templates, use GetAllViewTemplates for this.
+        /// </summary>
         public ViewSet GetAllViews()
         {
-            //find all views
+            // Find all views.
             IEnumerable<View> views = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
                 .Where(b => !b.IsTemplate
                 && b.ViewType != ViewType.DrawingSheet);
 
-            //add all the views into a ViewSet
+            // Add all the views into a ViewSet.
             ViewSet allViews = new ViewSet();
 
             foreach (View v in views)
                 allViews.Insert(v);
 
-            //return the ViewSet
+            // Return the ViewSet.
             return allViews;
         }
 
-        //Specifically checks for the sheet number
+        /// <summary>
+        /// Specifically checks for the sheet number
+        /// </summary>
         public XYZ GetSheetDimensions(string sheetName)
         {
-            //find a specific title block
+            // Find a specific title block.
             View sheet = GetSheet(sheetName);
 
 
-            // retrieve the title block instances            
+            // Retrieve the title block instances. 
             Parameter p;
             FilteredElementCollector a = new FilteredElementCollector(doc)
                 .OfCategory(BuiltInCategory.OST_TitleBlocks)
@@ -666,11 +736,11 @@ namespace RevitViewAndSheetManager
 
                 string sheet_number = p.AsString();
 
-                //check if we are on the correct sheet
+                // Check if we are on the correct sheet.
                 if (sheet_number != sheetName)
                     continue;
 
-                //we are on the correct sheet, get the width and height and return it
+                // We are on the correct sheet, get the width and height and return it.
 
                 p = e.get_Parameter(
                   BuiltInParameter.SHEET_WIDTH);
@@ -687,20 +757,22 @@ namespace RevitViewAndSheetManager
                 return xyz;
             }
 
-            //didnt find the sheet, return null
+            // Didnt find the sheet, return null.
             return null;
         }
 
-        //changes a viewport on the given sheets viewporttype into another type
+        /// <summary>
+        /// Changes a viewport on the given sheets viewporttype into another type.
+        /// </summary>
         public void ChangeViewPortType(string sheetName, ElementId viewportId, string typeName)
         {
             ElementId i = GetSheetId(sheetName);
 
-            //make sure we have a sheet to work with
+            // Make sure we have a sheet to work with.
             if (i == null)
                 return;
 
-            //get the viewport we are after
+            // Get the viewport we are after.
             IEnumerable<Viewport> viewports = new FilteredElementCollector(doc, i)
                 .OfClass(typeof(Viewport))
                 .Cast<Viewport>()
@@ -708,16 +780,18 @@ namespace RevitViewAndSheetManager
 
             Viewport vp = viewports.FirstOrDefault();
 
-            //make sure we have a viewport to work with
+            // Make sure we have a viewport to work with.
             if (vp == null)
                 return;
 
+            // Look for the view we need to change.
             if (!vp.Name.Equals(typeName))
                 foreach (ElementId id in vp.GetValidTypes())
                 {
                     ElementType type = doc.GetElement(id) as ElementType;
                     if (type.Name.Equals(typeName))
                     {
+                        // Found the view. Change its type and stop the method.
                         using (Transaction t = new Transaction(doc))
                         {
                             t.Start("Changing viewport type of sheet: '" + sheetName + "' of id: '" + viewportId.ToString() + "'");
@@ -730,47 +804,54 @@ namespace RevitViewAndSheetManager
                 }
         }
 
-        //checks if a view with the specified name is currently open
+        /// <summary>
+        /// Checks if a view with the specified name is currently open
+        /// </summary>
         public bool ViewIsOpen(string name)
         {
             View v = GetView(name);
 
-            //make sure we have a view to work with, if we dont it doesnt exist and therefore cane not be open
+            // Make sure we have a view to work with, if we dont it doesnt exist and therefore can not be open.
             if (v == null)
                 return false;
 
-            //get a list of all open views and check if the oen we are checking for is open
+            // Get a list of all open views and check if the oen we are checking for is open.
             IList<UIView> openViews = uiDoc.GetOpenUIViews();
 
+            // Check if the view is open.
             foreach (UIView uiV in openViews)            
                 if (uiV.ViewId.Equals(v.Id))
-                    return true;//we found the view and it is open            
+                    return true;
 
             return false;
         }
 
-        //checks if a sheet with the specified name is open
+        /// <summary>
+        /// Checks if a sheet with the specified name is open.
+        /// </summary>
         public bool SheetIsOpen(string name)
         {
             View v = GetSheet(name);
 
-            //make sure we have a sheet to work with, if we dont it doesnt exist and therefore cane not be open
+            // Make sure we have a sheet to work with, if we dont it doesnt exist and therefore cane not be open.
             if (v == null)
                 return false;
 
             IList<UIView> openViews = uiDoc.GetOpenUIViews();
 
+            // Check if the sheet is open.
             foreach (UIView uiV in openViews)            
                 if (uiV.ViewId.Equals(v.Id))
-                    return true;//we found the sheet and it is open            
+                    return true;         
 
             return false;
         }
 
-        //shows a message box using the given parameters
+        /// <summary>
+        /// Shows a message box using the given parameters
+        /// </summary>
         public TaskDialogResult ShowMessageBox(string dialogName, string id, string message, TaskDialogIcon icon, TaskDialogCommonButtons buttons)
         {
-            //give an error message if we do not
             TaskDialog td = new TaskDialog(dialogName);
             td.Id = id;
             td.MainIcon = icon;
@@ -779,8 +860,10 @@ namespace RevitViewAndSheetManager
             return td.Show();
         }
 
-        //shows a defaulted message box using the given strings
-        //the box will have no icon and will be a single ok button
+        /// <summary>
+        /// Shows a defaulted message box using the given strings.
+        /// The box will have no icon and will be a single ok button.
+        /// </summary>
         public TaskDialogResult ShowMessageBox(string dialogName, string message)
         {
             TaskDialog td = new TaskDialog(dialogName);
@@ -791,7 +874,10 @@ namespace RevitViewAndSheetManager
             return td.Show();
         }
 
-        //directly moves an element around a sheet, DOES NOT MOVE IT BETWEEN SHEETS
+        /// <summary>
+        /// Directly moves an element around a sheet, DOES NOT MOVE IT BETWEEN SHEETS.
+        /// </summary>
+
         public void MoveElement(ElementId id, double x, double y)
         {
             using (Transaction t = new Transaction(doc))
@@ -802,7 +888,9 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //starts a transaction group
+        /// <summary>
+        /// Starts the main transaction group.
+        /// </summary>
         public void StartTransactions(string transactionName)
         {
             if (!transactionList.HasStarted())
@@ -812,41 +900,47 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //commits ALL transactions since the class was created        
+        /// <summary>
+        /// Commits ALL transactions since StartTransactions was run 
+        /// </summary>
         public void CommitTransactions()
         {
             if (transactionList.HasStarted())
                 transactionList.Assimilate();
         }
 
-        //reverts ALL transactions since the class was created
+        /// <summary>
+        /// Reverts ALL transactions since the StartTransactions was run.
+        /// </summary>
         public void RevertTransactions()
         {
             if (transactionList.HasStarted())
                 transactionList.RollBack();
         }
 
-        //exports a given sheet as a DWG file usign the given options
-        //if multiple sheets of same name found exports all
+        /// <summary>
+        /// Exports a given sheet as a DWG file using the given options.
+        /// If multiple sheets of same name found exports each one with a number at the end donating its position.
+        /// </summary>
         public bool ExportSheetAsDWG(string sheetName, string filePath, DWGExportOptions options)
         {
-            //make sure we have data to work with
+            // Make sure we have data to work with.
             if (options == null || filePath == string.Empty)
                 return false;
 
-            //make sure we got sheets to work with
+            // Make sure we got sheets to work with.
             ICollection<ElementId> coll = GetSheetIdList(sheetName);
             if (coll == null)
                 return false;
 
-            //count how many sheets we have gone through
+            // Count how many sheets we have gone through.
             int count = 1;
 
             foreach (ElementId id in coll)
             {
                 using (Transaction t = new Transaction(doc))
                 {
-                    //get the sheet name and check if we need to add a number to the end
+                    // Get the sheet name and check if we need to add a number to the end.
                     string name = sheetName;
 
                     if (count > 1)
@@ -854,10 +948,11 @@ namespace RevitViewAndSheetManager
 
                     t.Start("exporting '" + name + "' as a DWG file.");
 
+                    // Add the file to a list as required.
                     ICollection<ElementId> ele = new List<ElementId>();
-                    ele.Add(id);//add the file to a list as required
+                    ele.Add(id);
 
-                    //attempt to export the sheet and rollback if it fails
+                    // Attempt to export the sheet and rollback if it fails.
                     try
                     {
                         doc.Export(filePath, name, ele, options);
@@ -877,7 +972,9 @@ namespace RevitViewAndSheetManager
             return true;
         }
 
-        //returns the location that the project exists in a string
+        /// <summary>
+        /// Returns the location that the project exists as a string.
+        /// </summary>
         public string GetProjectFileLocation()
         {
             try
@@ -891,10 +988,11 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //returns the file name of the project
+        /// <summary>
+        /// Returns the file name of the project.
+        /// </summary>
         public string GetProjectFileName()
         {
-            //attempt to get the projects file name
             try
             {
                 return System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
@@ -905,7 +1003,9 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //ask the user to select a point and return the selected point
+        /// <summary>
+        /// Ask the user to select a point and return the selected point.
+        /// </summary>
         public XYZ PickPoint(string message)
         {
             try
@@ -918,6 +1018,9 @@ namespace RevitViewAndSheetManager
             }
         }
 
+        /// <summary>
+        /// Ask the user to select a point and return the selected point.
+        /// </summary>
         public XYZ PickPoint(ObjectSnapTypes type, string message)
         {
             try
@@ -930,6 +1033,9 @@ namespace RevitViewAndSheetManager
             }            
         }
 
+        /// <summary>
+        /// Ask the user to select a object and return the selected object.
+        /// </summary>
         public Reference PickObject(ObjectType ot, SelectionFilter sf, string message)
         {
             ISelectionFilter filter = null;
@@ -948,11 +1054,17 @@ namespace RevitViewAndSheetManager
             return PickObject(ot, filter, message);
         }
 
+        //// <summary>
+        /// Ask the user to select a object and return the selected object.
+        /// </summary>
         public Reference PickObject(ObjectType ot, string message)
         {
             return PickObject(ot, (ISelectionFilter)null, message);
         }
 
+        /// <summary>
+        /// Ask the user to select a object and return the selected object.
+        /// </summary>
         public Reference PickObject(ObjectType ot, ISelectionFilter sf, string message)
         {
             if (ot == ObjectType.Nothing || message == string.Empty)
@@ -971,7 +1083,9 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //asks the user to pick objects and returns all picked objects as IList<Reference>, allows entering a selection filter
+        /// <summary>
+        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
+        /// </summary>
         public IList<Reference> PickObjects(ObjectType ot, SelectionFilter sf, string message)
         {
             ISelectionFilter filter = null;
@@ -990,12 +1104,17 @@ namespace RevitViewAndSheetManager
             return PickObjects(ot, filter, message);
         }
 
-        //asks the user to pick objects and returns all picked objects as IList<Reference>
+        /// <summary>
+        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
+        /// </summary>
         public IList<Reference> PickObjects(ObjectType ot, string message)
         {
             return PickObjects(ot, (ISelectionFilter)null, message);
         }
 
+        /// <summary>
+        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
+        /// </summary>
         public IList<Reference> PickObjects(ObjectType ot, ISelectionFilter sf, string message)
         {
             if (ot == ObjectType.Nothing || message == string.Empty)
@@ -1014,10 +1133,12 @@ namespace RevitViewAndSheetManager
             }
         }
 
-        //return a list of every element between two given points
+        /// <summary>
+        /// Return a list of every element between two given points.
+        /// </summary>
         public IEnumerable<Element> GetAllElementsBetweenTwoPoints(XYZ first, XYZ last)
         {
-            //make sure we have data to work with
+            // Make sure we have data to work with.
             if (first == null || last == null)
                 return null;
 
@@ -1071,141 +1192,116 @@ namespace RevitViewAndSheetManager
             return eList;
         }
 
-        /*public Dimension CreateLinearDimension(XYZ first, XYZ last, ReferenceArray refArray)
-        {
-            return CreateLinearDimension(doc.ActiveView, first, last, refArray);
-        }
-
-        public Dimension CreateLinearDimension(View view, XYZ first, XYZ last, ReferenceArray refArray)
-        {
-            if (view == null || first == null || last == null || refArray == null)
-                return null;
-
-            Line line = Line.CreateBound(first, last);
-            if (line == null)
-                return null;
-
-            try
-            {
-                Dimension d; 
-                using (Transaction t = new Transaction(doc))
-                {
-                    t.Start("Creating dimension.");
-                    d = doc.Create.NewDimension(view, line, refArray);
-                    t.Commit();
-                }
-
-                return d;
-            }
-            catch
-            {
-                return null;
-            }            
-        }*/
-
-
-        //opens a view in the current project and makes it active in the ui
+        /// <summary>
+        /// Opens a view in the current project and makes it active in the ui.
+        /// </summary>
         public void OpenView(string viewName)
         {
-            //get the sheet
+            // Get the sheet.
             View view = GetView(viewName);
 
-            //make sure we have data to work with
+            // Make sure we have data to work with.
             if (view == null)
                 return;
 
-            //switch the active view and make sure to refresh the screen
+            // Switch the active view and make sure to refresh the screen.
             uiDoc.ActiveView = view;
             uiDoc.RefreshActiveView();
         }
 
-        //opens a sheet in the current project and makes it active in the ui
+        /// <summary>
+        /// Opens a sheet in the current project and makes it active in the ui.
+        /// </summary>
         public void OpenSheet(string sheetName)
         {
-            //get the sheet
+            // Get the sheet.
             View view = GetSheet(sheetName);
 
-            //make sure we have data to work with
+            // Make sure we have data to work with.
             if (view == null)
                 return;
 
-            //switch the active view and make sure to refresh the screen
+            // Switch the active view and make sure to refresh the screen.
             uiDoc.ActiveView = view;
             uiDoc.RefreshActiveView();
         }
 
-        //closes an open view with the given name, will not close if it is the ONLY open doc
+        /// <summary>
+        /// Closes an open view with the given name, will not close if it is the ONLY open doc.
+        /// </summary>
         public void CloseActiveTab(string tabName)
         {
-            //get a list of all active ui views
+            // Get a list of all active ui views.
             IList<UIView> viewList = uiDoc.GetOpenUIViews();
 
-            //make sure we have data to work with
+            // Make sure we have data to work with.
             if (viewList == null)
                 return;
 
-            //MUST have at least 2 tabs open as we can not close the last tab
+            // MUST have at least 2 tabs open as we can not close the last tab.
             if (viewList.Count <= 1)
                 return;
 
-            //iterate through all uiviews and attempt to close the first one found with the given name
+            // Iterate through all uiviews and attempt to close the first one found with the given name.
             foreach(UIView uiView in viewList)
             {
                 try
                 {
-                    //convert the tab into a view so we can check its name
+                    // Convert the tab into a view so we can check its name.
                     View view = doc.GetElement(uiView.ViewId) as View;
 
                     //check if the tab has the name we are looking for
                     if (view.Name == tabName)
                     {
-                        //close it and quit the foreach statement
+                        // Close it and quit the foreach statement.
                         uiView.Close();
                         break;
                     }
                 }
                 catch
                 {
-                    //exception caught, try next tab
+                    // Exception caught, try next tab.
                     continue;
                 }
-                //TODO: debug messages here
+                // TODO: debug messages here.
             }
         }
 
-        //creates a WinForm asking the user to enter data into the supplied text box
-        //this function does not check the returning string and returns it as was exactly added, it is up to the coder to error hceck this data once it is returned
+        /// <summary>
+        /// Creates a WinForm asking the user to enter data into the supplied text box.
+        /// This function does not check the returning string and returns it as was exactly added, it is up to the coder to error check this data once it is returned.
+        /// </summary>
         public string GetUserInput(string windowName, string labelText)
         {
             string tempstr = "";
 
-            //prepare a new form
+            // Prepare a new form.
             System.Windows.Forms.Form form = new System.Windows.Forms.Form();
 
-            //set some basic settings
+            // Set some basic settings.
             form.Size = new System.Drawing.Size(400, 162);
             form.Text = windowName;
             form.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             form.MinimizeBox = false;
             form.MaximizeBox = false;
 
-            //create the buttons
+            // Create the buttons.
             System.Windows.Forms.Button bOk = new System.Windows.Forms.Button();
             System.Windows.Forms.Button bCancel = new System.Windows.Forms.Button();
 
-            //create the label
+            // Create the label.
             System.Windows.Forms.Label lLabel = new System.Windows.Forms.Label();
 
-            //create the text box
+            // Create the text box.
             System.Windows.Forms.TextBox tbTextBox = new System.Windows.Forms.TextBox();
 
-            //add our controls
+            // Add our controls.
             form.Controls.Add(bOk);
             form.Controls.Add(bCancel);
             form.Controls.Add(lLabel);
             form.Controls.Add(tbTextBox);
 
-            //setup the controls as needed
+            // Setup the controls as needed.
             bOk.Text = "Ok";
             bOk.DialogResult = System.Windows.Forms.DialogResult.OK;
             bOk.Location = new System.Drawing.Point(10, 90);
@@ -1222,50 +1318,58 @@ namespace RevitViewAndSheetManager
             tbTextBox.Location = new System.Drawing.Point(10, 56);
             tbTextBox.Size = new System.Drawing.Size(370, 23);
 
-            //setup the enter and exc button hotkeysfor the form
+            // Setup the enter and exc button hotkeysfor the form.
             form.AcceptButton = bOk;
             form.CancelButton = bCancel;
 
-            //use the JtWindowHandle class to get a propper IWin32Window reference for the revit programs main window
+            // Use the JtWindowHandle class to get a propper IWin32Window reference for the revit programs main window.
             System.Windows.Forms.IWin32Window revitWindow = new JtWindowHandle(uiApp.MainWindowHandle);
 
-            //check if we should grab the data from the textbox
+            // Check if we should grab the data from the textbox.
             if (form.ShowDialog() == System.Windows.Forms.DialogResult.OK)            
                 tempstr = tbTextBox.Text;            
 
             return tempstr;
         }
 
-        //returns the element in the document of the given reference
+        /// <summary>
+        /// Returns the element in the document of the given reference.
+        /// </summary>
         public Element GetElementViaReference(Reference r)
         {
             return doc.GetElement(r.ElementId);
         }
 
-        //returns the given degrees as radians
+        /// <summary>
+        /// Returns the given degrees as radians.
+        /// </summary>
         public double DegreesToRadians(double degrees)
         {
             return (degrees * Math.PI) / 180;
         }
 
-        //returns the given radians as degrees
+        /// <summary>
+        /// Returns the given radians as degrees.
+        /// </summary>
         public double RadiansToDegrees(double radians)
         {
             return (radians * 180) / Math.PI;
         }
 
-        //returns the state of the given room
+        /// <summary>
+        /// Returns the state of the given room.
+        /// </summary>
         //with thanks to jeremy tammik
         //https://thebuildingcoder.typepad.com/blog/2016/04/how-to-distinguish-redundant-rooms.html
         public RoomState DistinguishRoom(Autodesk.Revit.DB.Architecture.Room room)
         {
-            //check if the room is Placed
+            // Check if the room is Placed.
             if (room.Area > 0)
                 return RoomState.Placed;
-            //if not check if its NotPlaced
+            // If not check if its NotPlaced.
             else if (room.Location == null)
                 return RoomState.NotPlaced;
-            //other wise it must be Redundant or NotEnclosed
+            // Other wise it must be Redundant or NotEnclosed.
             else 
             {
 
@@ -1280,14 +1384,17 @@ namespace RevitViewAndSheetManager
                     return RoomState.Redundant;
             }
 
-            //we didnt find the state
+            // We didnt find the state.
             return RoomState.Unknown;
         }
 
-        //wipes all elements with ids from the list of given
+        /// <summary>
+        /// Wipes all elements with ids from the list of given.
+        /// </summary>
         public bool Delete(List<ElementId> eID)
         {
-            if (eID != null)//make sure we have been given elements to delete
+            // Make sure we have been given elements to delete.
+            if (eID != null)
                 using (Transaction t = new Transaction(doc))
                 {
                     t.Start("Deleting given element(s).");
@@ -1300,10 +1407,13 @@ namespace RevitViewAndSheetManager
                 return false;
         }
 
-        //wipes a specific element with the given id
+        /// <summary>
+        /// Wipes a specific element with the given id.
+        /// </summary>
         public bool Delete(ElementId eID)
         {
-            if (eID != null)//make sure an element was given
+            // Make sure an element was given.
+            if (eID != null)
                 using (Transaction t = new Transaction(doc))
                 {
                     t.Start("Deleting given element.");
@@ -1316,18 +1426,11 @@ namespace RevitViewAndSheetManager
                 return false;
         }
 
-        /////////////////////
-        //private functions//
-        /////////////////////
-
-
         /// <summary>
-        /// /// <summary>
-        /// Wrapper class for converting 
-        /// IntPtr to IWin32Window.
-        /// code thanks to Jeremy Tammik
-        /// https://thebuildingcoder.typepad.com/blog/2012/05/the-schedule-api-and-access-to-schedule-data.html
+        /// Wrapper class for converting IntPtr to IWin32Window.        
         /// </summary>
+        // code thanks to Jeremy Tammik
+        // https://thebuildingcoder.typepad.com/blog/2012/05/the-schedule-api-and-access-to-schedule-data.html
         private class JtWindowHandle : System.Windows.Forms.IWin32Window
         {
             IntPtr _hwnd;
@@ -1348,14 +1451,13 @@ namespace RevitViewAndSheetManager
                 }
             }
         }
-        /// </summary>
-        /// <param name="viewName"></param>
-        /// <returns></returns>
 
-        //searches for a view with the given name and returns its id
+        /// <summary>
+        /// Searches for a view with the given name and returns its id.
+        /// </summary>
         private ElementId GetViewId(string viewName)
         {
-            //find the view with the given name that IS NOT a template or a drawing sheet
+            // Find the view with the given name that IS NOT a template or a drawing sheet.
             IEnumerable<View> views = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
@@ -1363,23 +1465,25 @@ namespace RevitViewAndSheetManager
                 && !v.IsTemplate
                 && v.ViewType != ViewType.DrawingSheet);
 
-            //check if we found the view
+            // Check if we found the view.
             if (views != null)
             {
                 View view = views.FirstOrDefault();
 
                 if (view != null)
-                    return view.Id;//found the view
+                    return view.Id;
             }
 
-            //didnt find the id, return null
+            // Didnt find the id.
             return null;
         }
 
-        //searches for a view with the given name and returns the view itself
+        /// <summary>
+        /// Searches for a view with the given name and returns the view itself.
+        /// </summary>
         private View GetView(string viewName)
         {
-            //find the view with the given name that IS NOT a template or a drawing sheet
+            // Find the view with the given name that IS NOT a template or a drawing sheet.
             IEnumerable<View> views = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
@@ -1387,23 +1491,25 @@ namespace RevitViewAndSheetManager
                 && !v.IsTemplate
                 && v.ViewType != ViewType.DrawingSheet);
 
-            //check if we found the view
+            // Check if we found the view.
             if (views != null)
             {
                 View view = views.FirstOrDefault();
 
                 if (view != null)
-                    return view;//found the view
+                    return view;
             }
 
-            //didnt find the id, return null
+            // Didnt find the id, return null.
             return null;
         }
 
-        //searches for and returns the id of a view template
+        /// <summary>
+        /// Searches for and returns the id of a view template.
+        /// </summary>
         private ElementId GetViewTemplateId(string templateName)
         {
-            //find a specified view template that is NOT a drawing sheet and IS a template
+            // Find a specified view template that is NOT a drawing sheet and IS a template.
             IEnumerable<View> views = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
@@ -1411,18 +1517,22 @@ namespace RevitViewAndSheetManager
                 && v.IsTemplate
                 && v.ViewType != ViewType.DrawingSheet);
 
-            //check if we found the view template
+            // Check if we found the view template.
             if (views != null)
             {
                 View template = views.FirstOrDefault();
 
                 if (template != null)
-                    return template.Id;//found the template
+                    return template.Id;
             }
-            //did not find specified template
+
+            // Did not find specified template.
             return null;
         }
 
+        /// <summary>
+        /// Gets the ID of the ViewFamiliyType of a view.
+        /// </summary>
         private ElementId GetViewFamilyType(string viewTypeName)
         {
             IEnumerable<ViewFamilyType> coll = new FilteredElementCollector(doc)
@@ -1430,151 +1540,167 @@ namespace RevitViewAndSheetManager
                 .Cast<ViewFamilyType>()
                 .Where(v => v.Name.Equals(viewTypeName));
 
-            //check if we found the view family type
+            // Check if we found the view family type.
             if (coll != null)
             {
                 ViewFamilyType vt = coll.FirstOrDefault();
 
                 if (vt != null)
-                    return vt.Id;//found the view family type
+                    return vt.Id;
             }
 
-            //did not find specified view family type
+            // Did not find specified view family type.
             return null;
         }
 
+        /// <summary>
+        /// Gets the first view of the given name.
+        /// </summary>
         private View GetSheet(string sheetName)
         {
-            //find a specific drawing sheet
+            // Find a specific drawing sheet.
             IEnumerable<View> sheets = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
                 .Where(v => v.Name.Equals(sheetName)
                 && v.ViewType == ViewType.DrawingSheet);
 
-            //check if we found the sheet
+            // Check if we found the sheet.
             if (sheets != null)
             {
                 View sheet = sheets.FirstOrDefault();
 
                 if (sheet != null)
-                    return sheet;//found the sheet
+                    return sheet;
             }
 
-            //didnt find the id, return null
+            // Didnt find the id, return null.
             return null;
         }
 
+        /// <summary>
+        /// Gets the sheet number of the first view with the given name.
+        /// </summary>
         private string GetSheetNumber(string sheetName)
         {
-            //find a specific drawing sheet
+            // Find a specific drawing sheet.
             IEnumerable<ViewSheet> sheets = new FilteredElementCollector(doc)
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
                 .Where(v => v.Name.Equals(sheetName)
                 && v.ViewType == ViewType.DrawingSheet);
 
-            //check if we found the sheet
+            // Check if we found the sheet.
             if (sheets != null)
             {
                 ViewSheet sheet = sheets.FirstOrDefault();
 
                 if (sheet != null)
-                    return sheet.SheetNumber;//found the sheet
+                    return sheet.SheetNumber;
             }
 
-            //didnt find the id, return null
+            // Didnt find the id, return null.
             return null;
         }
 
+        /// <summary>
+        /// Gets the view of the first view with the given name and returns it as a ViewSheet.
+        /// </summary>
         private ViewSheet GetSheetAsViewSheet(string sheetName)
         {
-            //find a specific drawing sheet
+            // Find a specific drawing sheet.
             IEnumerable<ViewSheet> sheets = new FilteredElementCollector(doc)
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
                 .Where(v => v.Name.Equals(sheetName)
                 && v.ViewType == ViewType.DrawingSheet);
 
-            //check if we found the sheet
+            // Check if we found the sheet.
             if (sheets != null)
             {
                 ViewSheet sheet = sheets.FirstOrDefault();
 
                 if (sheet != null)
-                    return sheet;//found the sheet
+                    return sheet;
             }
 
-            //didnt find the id, return null
+            // Didnt find the id, return null.
             return null;
         }
 
-        //finds and returns the id of the first found sheet with the given name
+        /// <summary>
+        /// Finds and returns the id of the first found sheet with the given name.
+        /// </summary>
         private ElementId GetSheetId(string sheetName)
         {
-            //find a specific drawing sheet
+            // Find a specific drawing sheet.
             IEnumerable<View> sheets = new FilteredElementCollector(doc)
                 .OfClass(typeof(View))
                 .Cast<View>()
                 .Where(v => v.Name.Equals(sheetName)
                 && v.ViewType == ViewType.DrawingSheet);
 
-            //check if we found the sheet
+            // Check if we found the sheet.
             if (sheets != null)
             {
                 View sheet = sheets.FirstOrDefault();
 
                 if (sheet != null)
-                    return sheet.Id;//found the sheet
+                    return sheet.Id;
             }
 
-            //didnt find the id, return null
+            // Didnt find the id, return null.
             return null;
         }
 
-        //finds and returns the id of ALL sheets with the given name
+        /// <summary>
+        /// Finds and returns the id of ALL sheets with the given name.
+        /// </summary>
         private ICollection<ElementId> GetSheetIdList(string sheetName)
         {
-            //find a specific drawing sheet
+            // Find a specific drawing sheet.
             IEnumerable<ViewSheet> sheets = new FilteredElementCollector(doc)
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
-                .OrderBy(v => v.SheetNumber)//attempt to order this list by the sheet number
+                .OrderBy(v => v.SheetNumber)
                 .Where(v => v.Name.Equals(sheetName)
                 && v.ViewType == ViewType.DrawingSheet);
 
             ICollection<ElementId> coll = new List<ElementId>();
 
-            //check if we found the sheet
+            // Check if we found the sheet.
             if (sheets != null)
                 foreach (ViewSheet v in sheets)
-                    coll.Add(v.Id);//found a sheet with name    
+                    coll.Add(v.Id); 
 
 
-            //didnt find the id, return null
+            // Didnt find the id, return null.
             if (coll.Count >= 1)
                 return coll;
             else
                 return null;
         }
 
+        /// <summary>
+        /// Gets the id of the first TitleBlock wit hthe given name.
+        /// </summary>
         private ElementId GetTitleBlockId(string titleBlock)
         {
-            //find a specific title block id
+            // Find a specific title block id.
             IEnumerable<FamilySymbol> tb = new FilteredElementCollector(doc)
                 .OfClass(typeof(FamilySymbol))
                 .OfCategory(BuiltInCategory.OST_TitleBlocks)
                 .Cast<FamilySymbol>()
                 .Where(v => v.FamilyName.Equals(titleBlock));
 
-            //check if we found the title block
+            // Check if we found the title block.
             if (tb != null)
                 return tb.FirstOrDefault().Id;
             else
                 return null;
         }             
 
-        //classes for use with selection filters
+        // Classes for use with selection filters.
         private class BuildingSelectionFilter : ISelectionFilter
         {
             public bool AllowElement(Element e)
@@ -1615,7 +1741,7 @@ namespace RevitViewAndSheetManager
         }
     }    
 
-    //enum used with rotating views
+    // Enum used with rotating views.
     public enum RotationAngle
     {
         Left = 1,
@@ -1623,12 +1749,14 @@ namespace RevitViewAndSheetManager
         Right = 3
     }
 
+    // Enum used with selecting specific objects via PickObject or PickObjects.
     public enum SelectionFilter
     {
         Building,
         TextNote
     }
 
+    // Used via DistinguishRoom to determine the state of the room.
     public enum RoomState
     {
         Placed,
