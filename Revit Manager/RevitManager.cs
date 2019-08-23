@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 
@@ -979,8 +980,7 @@ namespace RevitViewAndSheetManager
         {
             try
             {
-                string str = System.IO.Path.GetDirectoryName(doc.PathName);
-                return str;
+                return System.IO.Path.GetDirectoryName(doc.PathName);
             }
             catch
             {
@@ -996,6 +996,76 @@ namespace RevitViewAndSheetManager
             try
             {
                 return System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the local user Addins folder for the in-use version of revit.
+        /// Addins in this folder are user specific.
+        /// </summary>
+        public string GetAddinsAppDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+                return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the common Addins folder for the in-use version of revit.
+        /// Addins in this folder are non-user specific.
+        /// </summary>
+        public string GetAddinsProgramDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+
+                return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the local user Revit settings folder for the in-use version of revit.
+        /// </summary>
+        public string GetRevitAppDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+                return appDataloc + @"\Autodesk\Revit";
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the common Revit folder for the in-use version of revit.
+        /// </summary
+        public string GetRevitProgramDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+
+                return appDataloc + @"\Autodesk\Revit";
             }
             catch
             {
@@ -1263,7 +1333,6 @@ namespace RevitViewAndSheetManager
                     // Exception caught, try next tab.
                     continue;
                 }
-                // TODO: debug messages here.
             }
         }
 
@@ -1389,7 +1458,332 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
-        /// Wipes all elements with ids from the list of given.
+        /// Retuns a parameter from the given familyinstance with the given name.
+        /// </summary>
+        public Parameter GetInstanceParameter(FamilyInstance familyInstance, string parameterName)
+        {
+            // Attempt to get the parameter data.
+            if (familyInstance != null)
+                foreach (Parameter p in familyInstance.Parameters)
+                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
+                        return p;
+
+            // Did not find a parameter with the given name.
+            return null;
+        }
+
+        /// <summary>
+        /// Retuns the value of a parameter from the given familyinstance with the given name.
+        /// </summary>
+        public string GetInstanceParameterValue(FamilyInstance familyInstance, string parameterName)
+        {
+            // Attempt to get the parameter data.
+            if (familyInstance != null)
+                foreach (Parameter p in familyInstance.Parameters)
+                    if (p.Definition.Name == parameterName)
+                        if (p.HasValue)
+                            return p.AsValueString();
+                        else
+                            return string.Empty;
+
+            // Did not find a parameter with the given name.
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Changes the type on a given family instance.
+        /// Searches for the new type, slower then directly giving it the FamilySymbol.
+        /// </summary>
+        public bool ChangeInstanceType(FamilyInstance familyInstance, string newFamily, string newType)
+        {
+            // Get the id of the type we will be changing to first.
+            IEnumerable<FamilySymbol> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>()
+                .Where(s => s.FamilyName.Equals(newFamily)
+                && s.Name.Equals(newType));
+
+            if (coll.Count() == 0)
+                return false;
+
+            ElementId type = coll.FirstOrDefault().Id;
+
+            if (!familyInstance.IsValidType(type))
+                return false;
+
+            using (Transaction t = new Transaction(doc))
+            {
+                t.Start("Change instance Type of " + familyInstance.Name + " to " + newFamily + ":" + newType);
+                familyInstance.ChangeTypeId(type);
+                t.Commit();
+            }            
+
+            return true;
+        }
+
+        /// <summary>
+        /// Changes the type on a given family instance.
+        /// </summary>
+        public bool ChangeInstanceType(FamilyInstance familyInstance, FamilySymbol newType)
+        {
+            if (familyInstance == null || newType == null)
+                return false;
+
+            if (!familyInstance.IsValidType(newType.Id))
+                return false;
+
+            using (Transaction t = new Transaction(doc))
+            {
+                t.Start("Change instance Type of " + familyInstance.Name + " to " + newType.Name + ":" + newType);
+                familyInstance.ChangeTypeId(newType.Id);
+                t.Commit();
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Changes the type on a given family instance.
+        /// </summary>
+        public bool ChangeElementType(ElementId eId, FamilySymbol newType)
+        {
+            if (eId == null || newType == null)
+                return false;
+
+            Element e = doc.GetElement(eId);
+
+            if (!e.IsValidType(newType.Id))
+                return false;
+
+            using (Transaction t = new Transaction(doc))
+            {
+                t.Start("Change instance Type of " + e.Name + " to " + newType.Name + ":" + newType);
+                e.ChangeTypeId(newType.Id);
+                t.Commit();
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Changes the family of a given instance.
+        /// Searches for the new family by name, slower then directly giving it the FamilySymbol.
+        /// </summary>
+        public bool ChangeFamily(FamilyInstance familyInstance, string newFamily)
+        {
+            // Get the id of the type we will be changing to first.
+            IEnumerable<FamilySymbol> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>()
+                .Where(s => s.FamilyName.Equals(newFamily));
+
+            if (coll.Count() == 0)
+                return false;
+
+            ElementId type = coll.FirstOrDefault().Id;
+
+            // Make sure the new type is valid for this instance.     
+            if (!familyInstance.IsValidType(type))
+                return false;
+
+            // Update family instance to the new type   
+            using (Transaction t = new Transaction(doc))
+            {
+                t.Start("Change family Type of " + familyInstance + " to " + newFamily);
+                familyInstance.ChangeTypeId(type);
+
+                t.Commit();
+            }            
+
+            return true;
+        }
+
+        /// <summary>
+        /// Changes the family of a given instance.
+        /// </summary>
+        public bool ChangeFamily(FamilyInstance familyInstance, FamilySymbol newFamily)
+        {
+            if (familyInstance == null || newFamily == null)
+                return false;
+
+            // Make sure the new type is valid for this instance.     
+            if (!familyInstance.IsValidType(newFamily.Id))
+                return false;
+
+            // Update family instance to the new type   
+            using (Transaction t = new Transaction(doc))
+            {
+                t.Start("Change family Type of " + familyInstance + " to " + newFamily);
+                familyInstance.ChangeTypeId(newFamily.Id);
+
+                t.Commit();
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Changes the family of a given element.
+        /// </summary>
+        public bool ChangeFamily(ElementId instance, string newFamily)
+        {
+            // Get the id of the type we will be changing to first.
+            IEnumerable<FamilySymbol> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>()
+                .Where(s => s.FamilyName.Equals(newFamily));
+
+            if (coll.Count() == 0)
+                return false;
+
+            ElementId type = coll.FirstOrDefault().Id;
+
+            using (Transaction t = new Transaction(doc))
+            {
+                t.Start("Change family of element " + instance.ToString() + " to " + newFamily);
+
+                try
+                {                    
+                    FamilyInstance temp = doc.GetElement(instance) as FamilyInstance;
+
+                    temp.ChangeTypeId(type);
+                }
+                catch
+                {
+                    t.RollBack();
+                    return false;
+                }                
+
+                t.Commit();
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Changes the parameters on a given family.
+        /// </summary>
+        public bool ChangeFamilyInstanceParameter(FamilyInstance familyInstance, string parameterName, dynamic newParameter)
+        {
+            // We must make sure the new parameter is one of the following: int, double or string.            
+            if (newParameter.GetType() == typeof(int) || newParameter.GetType() == typeof(double) || newParameter.GetType() == typeof(string))
+            {
+                foreach (Parameter p in familyInstance.Parameters)
+                    if (p.Definition.Name == parameterName)
+                        using (Transaction t = new Transaction(doc))
+                        {
+                            bool result;
+
+                            t.Start("Edit Parameter");
+
+                            result = p.Set(newParameter);
+
+                            if (result)
+                                t.Commit();
+                            else
+                                t.RollBack();
+
+                            return result;
+                        }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Changes the parameters on a given element.
+        /// </summary>
+        public bool ChangeElementParameter(ElementId eId, string parameterName, dynamic newParameter)
+        {
+            // We must make sure the new parameter is one of the following: int, double or string.            
+            if (newParameter.GetType() == typeof(int) || newParameter.GetType() == typeof(double) || newParameter.GetType() == typeof(string))
+            {
+                FamilyInstance familyInstance;
+
+                //attempt to turn the given elementid into a family instance
+                try
+                {
+                    familyInstance = doc.GetElement(eId) as FamilyInstance;
+                }
+                catch
+                {
+                    return false;
+                }
+
+                foreach (Parameter p in familyInstance.Parameters)
+                    if (p.Definition.Name == parameterName)
+                        using (Transaction t = new Transaction(doc))
+                        {
+                            bool result;
+
+                            t.Start("Edit Parameter");
+
+                            result = p.Set(newParameter);
+
+                            if (result)
+                                t.Commit();
+                            else
+                                t.RollBack();
+
+                            return result;
+                        }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Returns an array of FamilyInstance where every member is a part of the given family.
+        /// </summary>
+        public FamilyInstance[] GetAllFamilyInstancesOfFamily(string familyName)
+        {
+            IEnumerable<FamilyInstance> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilyInstance))
+                .Cast<FamilyInstance>()
+                .Where(s => s.Symbol.FamilyName.ToLower().Equals(familyName.ToLower()));
+
+            if (coll.Count() == 0)
+                return null;
+
+            return coll.ToArray();
+        }
+
+        /// <summary>
+        /// Returns the familysymbol of the given familytype.
+        /// </summary>
+        public FamilySymbol GetFamilyType(string familyName, string familyType)
+        {
+            // Get the id of the type we will be changing to first.
+            IEnumerable<FamilySymbol> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>()
+                .Where(s => s.FamilyName.Equals(familyName)
+                && s.Name.Equals(familyType));
+
+            if (coll.Count() == 0)
+                return null;
+
+            return coll.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Finds and returns the family of the given name.
+        /// </summary>
+        public Family GetFamily(string familyName)
+        {
+            IEnumerable<Family> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(Family))
+                .Cast<Family>()
+                .Where(s => s.Name.Equals(familyName));
+
+            if (coll.Count() == 0)
+                return null;
+
+            return coll.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Wipes all elements from the document with ids from the given list.
         /// </summary>
         public bool Delete(List<ElementId> eID)
         {
