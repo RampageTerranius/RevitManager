@@ -1669,14 +1669,32 @@ namespace RevitViewAndSheetManager
             if (newParameter.GetType() == typeof(int) || newParameter.GetType() == typeof(double) || newParameter.GetType() == typeof(string))
             {
                 foreach (Parameter p in familyInstance.Parameters)
-                    if (p.Definition.Name == parameterName)
+                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
                         using (Transaction t = new Transaction(doc))
                         {
-                            bool result;
+                            bool result = false;
 
                             t.Start("Edit Parameter");
 
-                            result = p.Set(newParameter);
+                            switch (p.StorageType)
+                            {
+                                case StorageType.Integer:
+                                    int tempi;
+                                    int.TryParse(newParameter, out tempi);
+                                    result = p.Set(tempi);
+                                    break;
+
+                                case StorageType.Double:
+                                    double tempd;
+                                    double.TryParse(newParameter, out tempd);
+                                    result = p.Set(tempd);
+                                    break;
+
+                                case StorageType.String:
+                                    string temps = newParameter;
+                                    result = p.Set(temps);
+                                    break;
+                            }
 
                             if (result)
                                 t.Commit();
@@ -1711,14 +1729,32 @@ namespace RevitViewAndSheetManager
                 }
 
                 foreach (Parameter p in familyInstance.Parameters)
-                    if (p.Definition.Name == parameterName)
+                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
                         using (Transaction t = new Transaction(doc))
                         {
-                            bool result;
+                            bool result = false;
 
                             t.Start("Edit Parameter");
 
-                            result = p.Set(newParameter);
+                            switch (p.StorageType)
+                            {
+                                case StorageType.Integer:
+                                    int tempi;
+                                    int.TryParse(newParameter, out tempi);
+                                    result = p.Set(tempi);
+                                    break;
+
+                                case StorageType.Double:
+                                    double tempd;
+                                    double.TryParse(newParameter, out tempd);
+                                    result = p.Set(tempd);
+                                    break;
+
+                                case StorageType.String:
+                                    string temps = newParameter;
+                                    result = p.Set(temps);
+                                    break;
+                            }
 
                             if (result)
                                 t.Commit();
@@ -1757,8 +1793,8 @@ namespace RevitViewAndSheetManager
             IEnumerable<FamilySymbol> coll = new FilteredElementCollector(doc)
                 .OfClass(typeof(FamilySymbol))
                 .Cast<FamilySymbol>()
-                .Where(s => s.FamilyName.Equals(familyName)
-                && s.Name.Equals(familyType));
+                .Where(s => s.FamilyName.ToLower().Equals(familyName.ToLower())
+                && s.Name.ToLower().Equals(familyType.ToLower()));
 
             if (coll.Count() == 0)
                 return null;
