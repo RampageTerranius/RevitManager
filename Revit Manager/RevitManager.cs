@@ -1391,9 +1391,6 @@ namespace RevitViewAndSheetManager
             form.AcceptButton = bOk;
             form.CancelButton = bCancel;
 
-            // Use the JtWindowHandle class to get a propper IWin32Window reference for the revit programs main window.
-            System.Windows.Forms.IWin32Window revitWindow = new JtWindowHandle(uiApp.MainWindowHandle);
-
             // Check if we should grab the data from the textbox.
             if (form.ShowDialog() == System.Windows.Forms.DialogResult.OK)            
                 tempstr = tbTextBox.Text;            
@@ -1464,9 +1461,7 @@ namespace RevitViewAndSheetManager
         {
             // Attempt to get the parameter data.
             if (familyInstance != null)
-                foreach (Parameter p in familyInstance.Parameters)
-                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
-                        return p;
+                return GetElementParameter(doc.GetElement(familyInstance.Id), parameterName); ;
 
             // Did not find a parameter with the given name.
             return null;
@@ -1661,49 +1656,102 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
+        /// Changes the parameters on a given family symbol. 
+        /// </summary>
+        public bool ChangeFamilyTypeParameter(FamilySymbol familySymbol, string parameterName, string newParameter)
+        {
+            foreach (Parameter p in familySymbol.Parameters)
+                if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
+                    using (Transaction t = new Transaction(doc))
+                    {
+                        bool result = false;
+
+                        t.Start("Edit Parameter");
+
+                        switch (p.StorageType)
+                        {
+                            case StorageType.Integer:
+                                int tempi;
+                                int.TryParse(newParameter, out tempi);
+                                result = p.Set(tempi);
+                                break;
+
+                            case StorageType.Double:
+                                double tempd;
+                                double.TryParse(newParameter, out tempd);
+                                result = p.Set(tempd);
+                                break;
+
+                            case StorageType.ElementId:
+                                Element tempele = doc.GetElement(newParameter);
+
+                                if (tempele != null)
+                                    result = p.Set(tempele.Id);
+                                break;
+
+                            case StorageType.String:
+                                result = p.Set(newParameter);
+                                break;
+                        }
+
+                        if (result)
+                            t.Commit();
+                        else
+                            t.RollBack();
+
+                        return result;
+                    }            
+
+            return false;
+        }
+
+        /// <summary>
         /// Changes the parameters on a given family.
         /// </summary>
-        public bool ChangeFamilyInstanceParameter(FamilyInstance familyInstance, string parameterName, dynamic newParameter)
+        public bool ChangeFamilyInstanceParameter(FamilyInstance familyInstance, string parameterName, string newParameter)
         {
-            // We must make sure the new parameter is one of the following: int, double or string.            
-            if (newParameter.GetType() == typeof(int) || newParameter.GetType() == typeof(double) || newParameter.GetType() == typeof(string))
-            {
-                foreach (Parameter p in familyInstance.Parameters)
-                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
-                        using (Transaction t = new Transaction(doc))
+            foreach (Parameter p in familyInstance.Parameters)
+                if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
+                    using (Transaction t = new Transaction(doc))
+                    {
+                        bool result = false;
+
+                        t.Start("Edit Parameter");
+
+                        switch (p.StorageType)
                         {
-                            bool result = false;
+                            case StorageType.Integer:
+                                int tempi;
+                                int.TryParse(newParameter, out tempi);
+                                result = p.Set(tempi);
+                                break;
 
-                            t.Start("Edit Parameter");
+                            case StorageType.Double:
+                                double tempd;
+                                double.TryParse(newParameter, out tempd);
+                                result = p.Set(tempd);
+                                break;
 
-                            switch (p.StorageType)
-                            {
-                                case StorageType.Integer:
-                                    int tempi;
-                                    int.TryParse(newParameter, out tempi);
-                                    result = p.Set(tempi);
-                                    break;
+                            case StorageType.ElementId:
+                                Element tempele = doc.GetElement(newParameter);
 
-                                case StorageType.Double:
-                                    double tempd;
-                                    double.TryParse(newParameter, out tempd);
-                                    result = p.Set(tempd);
-                                    break;
+                                if (tempele != null)
+                                    result = p.Set(tempele.Id);
+                                break;
 
-                                case StorageType.String:
-                                    string temps = newParameter;
-                                    result = p.Set(temps);
-                                    break;
-                            }
-
-                            if (result)
-                                t.Commit();
-                            else
-                                t.RollBack();
-
-                            return result;
+                            case StorageType.String:
+                                result = p.Set(newParameter);
+                                break;
                         }
-            }
+
+                        if (result)
+                            t.Commit();
+                        else
+                            t.RollBack();
+
+                        return result;
+                    }
+            
 
             return false;
         }
@@ -1711,59 +1759,62 @@ namespace RevitViewAndSheetManager
         /// <summary>
         /// Changes the parameters on a given element.
         /// </summary>
-        public bool ChangeElementParameter(ElementId eId, string parameterName, dynamic newParameter)
-        {
-            // We must make sure the new parameter is one of the following: int, double or string.            
-            if (newParameter.GetType() == typeof(int) || newParameter.GetType() == typeof(double) || newParameter.GetType() == typeof(string))
+        public bool ChangeElementParameter(ElementId eId, string parameterName, string newParameter)
+        {            
+            FamilyInstance familyInstance;
+
+            //attempt to turn the given elementid into a family instance
+            try
             {
-                FamilyInstance familyInstance;
-
-                //attempt to turn the given elementid into a family instance
-                try
-                {
-                    familyInstance = doc.GetElement(eId) as FamilyInstance;
-                }
-                catch
-                {
-                    return false;
-                }
-
-                foreach (Parameter p in familyInstance.Parameters)
-                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
-                        using (Transaction t = new Transaction(doc))
-                        {
-                            bool result = false;
-
-                            t.Start("Edit Parameter");
-
-                            switch (p.StorageType)
-                            {
-                                case StorageType.Integer:
-                                    int tempi;
-                                    int.TryParse(newParameter, out tempi);
-                                    result = p.Set(tempi);
-                                    break;
-
-                                case StorageType.Double:
-                                    double tempd;
-                                    double.TryParse(newParameter, out tempd);
-                                    result = p.Set(tempd);
-                                    break;
-
-                                case StorageType.String:
-                                    string temps = newParameter;
-                                    result = p.Set(temps);
-                                    break;
-                            }
-
-                            if (result)
-                                t.Commit();
-                            else
-                                t.RollBack();
-
-                            return result;
-                        }
+                familyInstance = doc.GetElement(eId) as FamilyInstance;
             }
+            catch
+            {
+                return false;
+            }
+
+            foreach (Parameter p in familyInstance.Parameters)
+                if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
+                    using (Transaction t = new Transaction(doc))
+                    {
+                        bool result = false;
+
+                        t.Start("Edit Parameter");
+
+                        switch (p.StorageType)
+                        {
+                            case StorageType.Integer:
+                                int tempi;
+                                int.TryParse(newParameter, out tempi);
+                                result = p.Set(tempi);
+                                break;
+
+                            case StorageType.Double:
+                                double tempd;
+                                double.TryParse(newParameter, out tempd);
+                                result = p.Set(tempd);
+                                break;
+
+                            case StorageType.ElementId:
+                                Element tempele = doc.GetElement(newParameter);
+
+                                if (tempele != null)
+                                    result = p.Set(tempele.Id);
+                                break;
+
+                            case StorageType.String:
+                                result = p.Set(newParameter);
+                                break;
+                        }
+
+                        if (result)
+                            t.Commit();
+                        else
+                            t.RollBack();
+
+                        return result;
+                    }
+            
 
             return false;
         }
@@ -1785,7 +1836,7 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
-        /// Returns the familysymbol of the given familytype.
+        /// Returns the FamilySymbol of a family type in the given family.
         /// </summary>
         public FamilySymbol GetFamilyType(string familyName, string familyType)
         {
@@ -1803,7 +1854,51 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
-        /// Finds and returns the family of the given name.
+        /// Finds a material by the given name and returns the ElementId
+        /// </summary>
+        public ElementId GetMaterialElementID(string materialName)
+        {
+            IEnumerable<Material> coll = new FilteredElementCollector(doc)
+            .OfClass(typeof(Material))
+            .Cast<Material>()
+            .Where(s => s.Name == materialName);
+
+            if (coll != null && coll.Count() > 0)
+                return coll.FirstOrDefault().Id;
+
+            else return null;
+        }
+
+        /// <summary>
+        /// Retuns a parameter from the given FamilySymbol with the given name.
+        /// </summary>
+        public Parameter GetFamilyTypeParameter(FamilySymbol familySymbol, string parameterName)
+        {
+            // Attempt to get the parameter data.
+            if (familySymbol != null)
+                return GetElementParameter(doc.GetElement(familySymbol.Id), parameterName);
+
+            // Did not find a parameter with the given name.
+            return null;
+        }
+
+        /// <summary>
+        /// Retuns a parameter from the given element with the given name.
+        /// </summary>
+        public Parameter GetElementParameter(Element ele, string parameterName)
+        {
+            // Attempt to get the parameter data.
+            if (ele != null)
+                foreach (Parameter p in ele.Parameters)
+                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
+                        return p;
+
+            // Did not find a parameter with the given name.
+            return null;
+        }
+
+        /// <summary>
+        /// Finds and returns the Family of the given name.
         /// </summary>
         public Family GetFamily(string familyName)
         {
@@ -1861,7 +1956,7 @@ namespace RevitViewAndSheetManager
         /// </summary>
         // code thanks to Jeremy Tammik
         // https://thebuildingcoder.typepad.com/blog/2012/05/the-schedule-api-and-access-to-schedule-data.html
-        private class JtWindowHandle : System.Windows.Forms.IWin32Window
+        public class JtWindowHandle : System.Windows.Forms.IWin32Window
         {
             IntPtr _hwnd;
 
