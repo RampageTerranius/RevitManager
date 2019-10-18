@@ -894,9 +894,10 @@ namespace RevitViewAndSheetManager
         /// </summary>
         public bool StartTransactions(string transactionName)
         {
-            if (!transactionList.HasStarted())
-                if (transactionList.Start(transactionName) == TransactionStatus.Started)
-                    return true;
+            if (transactionName != null)
+                if (!transactionList.HasStarted())
+                    if (transactionList.Start(transactionName) == TransactionStatus.Started)
+                        return true;
 
             return false;
         }
