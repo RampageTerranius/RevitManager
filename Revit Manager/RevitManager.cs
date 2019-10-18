@@ -20,13 +20,49 @@ namespace RevitViewAndSheetManager
 
         private TransactionGroup transactionList;
 
-        public bool debugMode = false;
-
         public Document Doc { get => doc;}
         public UIDocument UiDoc { get => uiDoc; }
         public UIApplication UiApp { get => uiApp; }
 
-        // TODO: error handling, have a list of errors and a way to get last error.
+        // Error handling variables and functions.
+        private List<string> errorList;
+        public bool showErrorMessages = true;
+
+        /// <summary>
+        /// Returns a list of all reported errors.
+        /// </summary>
+        public List<string> GetErrorList()
+        {
+            return errorList;
+        }
+
+        /// <summary>
+        /// Removes all reported errors.
+        /// </summary>
+        public void ClearErrorList()
+        {
+            errorList.Clear();
+        }
+
+        /// <summary>
+        /// Returns the last error reported.
+        /// </summary>
+        public string GetLastError()
+        {
+            return errorList[errorList.Count - 1];
+        }
+
+        private void LogError(string errorMessage)
+        {
+            errorList.Add(errorMessage);
+
+            if (showErrorMessages)
+                ShowMessageBox("Error",
+                               "RevitManager_LogError",
+                               errorMessage,
+                               TaskDialogIcon.TaskDialogIconWarning,
+                               TaskDialogCommonButtons.Close);
+        }        
 
         /// <summary>
         /// Default Constructor.
@@ -44,6 +80,8 @@ namespace RevitViewAndSheetManager
             doc = uiDoc.Document;
 
             transactionList = new TransactionGroup(doc);
+
+            errorList = new List<string>();
         }
 
         /// <summary>
@@ -102,12 +140,7 @@ namespace RevitViewAndSheetManager
                 catch
                 {
                     // Something went wrong, let the user know
-                    if (debugMode)
-                        ShowMessageBox("Warning!",
-                                       "ID_TaskDialog_Warning",
-                                       "Unable to create a new ViewSheet by the name of " + sheetName + ", of number " + sheetNumber + ", of titleblock type " + titleBlock,
-                                       TaskDialogIcon.TaskDialogIconWarning,
-                                       TaskDialogCommonButtons.Close);
+                    LogError("CreateSheet::Unable to create a new ViewSheet by the name of " + sheetName + ", of number " + sheetNumber + ", of titleblock type " + titleBlock);
                 
                     // As something has gone wrong we want to rollback to reverse any pending changes.
                     t.RollBack();
@@ -163,44 +196,17 @@ namespace RevitViewAndSheetManager
             }
             else
             {   
-                // Did not find a view or an element, show user an error .       
-                if (debugMode)
-                {
-                    string msg = string.Empty;
+                // Did not find a view or an element, show user an error.
 
-                    // Preparing the error message.
-                    int i = 0;
-                    if (v == null)
-                        i++;
-
-                    if (id == null)
-                        i = +2;
-
-                    switch (i)
-                    {
-                        case 1:
-                            // Unable to find view.
-                            msg = "Unable to move view '" + viewName + "', could not find view.";
-                            break;
-
-                        case 2:
-                            // Unable to find family.
-                            msg = "Unable to move view '" + viewName + "', could not find family id.";
-                            break;
-
-                        case 3:
-                            // Unable to find view AND template.
-                            msg = "Unable to move view '" + viewName + "', could not find view AND family id.";
-                            break;
-                    }
-
-                    // Show the message.
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   msg,
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
-                }
+                // Could not find view.
+                if (v == null && id != null)
+                    LogError("MoveView::Unable to move view '" + viewName + "', could not find view.");
+                // Could not find id.
+                else if (v != null && id == null)
+                    LogError("MoveView::Unable to move view '" + viewName + "', could not find family id.");
+                // Could not find view AND id.
+                else if (v == null && id == null)
+                    LogError("MoveView::Unable to move view '" + viewName + "', could not find view AND family id.");
 
                 return false;
             }
@@ -258,6 +264,7 @@ namespace RevitViewAndSheetManager
             }
             catch
             {
+                LogError("RotateElement::Failed to rotate element of id: " + id.ToString() + " by angle: " + angle.ToString());
                 return false;
             }
         }
@@ -291,15 +298,9 @@ namespace RevitViewAndSheetManager
                 return true;
             }
             else
-            {   
+            {
                 // Did not find a view, give the user an error.
-                if (debugMode)                
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to rename view '" + viewName + "', view may not exist!",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
-                
+                LogError("RenameView::Unable to rename view '" + viewName + "', view may not exist!");                
                 return false;                
             }
         }
@@ -334,13 +335,7 @@ namespace RevitViewAndSheetManager
             else
             {
                 // There was no view, give the user an error screen.
-                if (debugMode)
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to duplicate view '" + viewName + "'.",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
-
+                LogError("DuplicateViewByName::Unable to duplicate view '" + viewName + "'.");
                 return false;
             }
         }
@@ -366,46 +361,19 @@ namespace RevitViewAndSheetManager
                 return true;
             }
             else
-            {   
+            {
                 // There was no view or template, warn the user.
                 // Create error box.
-                if (debugMode)
-                {                    
-                    string msg = string.Empty;
 
-                    // Preparing the error message.
-                    int i = 0;
-                    if (v == null)
-                        i++;
-
-                    if (id == null)
-                        i = +2;
-
-                    switch (i)
-                    {
-                        case 1:
-                            // Unable to find view.
-                            msg = "Unable to change template for view '" + viewName + "', the view may not exist.";
-                            break;
-
-                        case 2:
-                            // Unable to find template.
-                            msg = "Unable to change template for view '" + viewName + "', the template may not exist.";
-                            break;
-
-                        case 3:
-                            // Unable to find view AND template.
-                            msg = "Unable to change template for view '" + viewName + "', the view AND template may not exist.";
-                            break;
-                    }
-
-                    // Show the message box.
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   msg,
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);                    
-                }
+                // Could not find view.
+                if (v == null && id != null)
+                    LogError("ChangeViewTemplate::Unable to change template for view '" + viewName + "', the view may not exist.");
+                // Could not find id.
+                else if (v != null && id == null)
+                    LogError("ChangeViewTemplate::Unable to change template for view '" + viewName + "', the template may not exist.");
+                // Could not find view AND id.
+                else if (v == null && id == null)
+                    LogError("ChangeViewTemplate::Unable to change template for view '" + viewName + "', the view AND template may not exist.");
 
                 return false;
             }
@@ -422,16 +390,9 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)
             {
-                if (debugMode)
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to remove all independant tags from " + viewName + ", it may not exist.",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
-
+                LogError("RemoveAllIndependentTags::Unable to remove all independant tags from " + viewName + ", it may not exist.");
                 return;
-            }
-            
+            }            
 
             // Grab all independent tags owned by the view we are worknig with.
             IEnumerable<IndependentTag> coll = new FilteredElementCollector(doc)
@@ -459,12 +420,7 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)
             {
-                if (debugMode)
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to remove all dimensions from " + viewName + ", it may not exist.",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
+                LogError("RemoveAllDimensions::Unable to remove all dimensions from " + viewName + ", it may not exist.");
                 return;
             }            
 
@@ -494,13 +450,7 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)
             {
-                if (debugMode)
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to remove all independant tags of type " + dimType.ToString() + " from " + viewName + ", it may not exist.",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
-
+                LogError("RemoveAllDimensionsOfType::Unable to remove all independant tags of type " + dimType.ToString() + " from " + viewName + ", it may not exist.");
                 return;
             }
 
@@ -531,12 +481,7 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)  
             {
-                if (debugMode)
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to remove all text notes from " + viewName + ", it may not exist.",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
+                LogError("RemoveAllTextNotes::Unable to remove all text notes from " + viewName + ", it may not exist.");
                 return;
             }
 
@@ -565,12 +510,7 @@ namespace RevitViewAndSheetManager
 
             if (v == null)
             {
-                if (debugMode)
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to remove all generic annotations from " + viewName + ", it may not exist.",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
+                LogError("RemoveAllAnnotations::Unable to remove all generic annotations from " + viewName + ", it may not exist.");
                 return;
             }
 
@@ -599,13 +539,7 @@ namespace RevitViewAndSheetManager
 
             if (v == null)
             {
-                if (debugMode)
-                    ShowMessageBox("Warning!",
-                                   "ID_TaskDialog_Warning",
-                                   "Unable to remove all groups from " + viewName + ", it may not exist.",
-                                   TaskDialogIcon.TaskDialogIconWarning,
-                                   TaskDialogCommonButtons.Close);
-
+                LogError("RemoveAllGroups::Unable to remove all groups from " + viewName + ", it may not exist.");
                 return;
             }
 
@@ -965,8 +899,27 @@ namespace RevitViewAndSheetManager
                     {
                         doc.Export(filePath, name, ele, options);
                     }
+                    catch (Autodesk.Revit.Exceptions.DirectoryNotFoundException)
+                    {
+                        LogError("ExportSheetAsDWG::Failed to export sheet: The directory was not found.");
+                        t.RollBack();
+                        return false;
+                    }
+                    catch (Autodesk.Revit.Exceptions.InvalidPathArgumentException)
+                    {
+                        LogError("ExportSheetAsDWG::Failed to export sheet: The given path was invalid.");
+                        t.RollBack();
+                        return false;
+                    }
+                    catch (Autodesk.Revit.Exceptions.ArgumentException)
+                    {
+                        LogError("ExportSheetAsDWG::Invalid Argument.");
+                        t.RollBack();
+                        return false;
+                    }
                     catch
                     {
+                        LogError("ExportSheetAsDWG::Unhandled Exception.");
                         t.RollBack();
                         return false;
                     }
@@ -989,8 +942,15 @@ namespace RevitViewAndSheetManager
             {
                 return System.IO.Path.GetDirectoryName(doc.PathName);
             }
-            catch
+
+            catch (System.IO.PathTooLongException)
             {
+                LogError("GetProjectFileLocation::The Path is too long.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetProjectFileLocation::Invalid Argument.");
                 return string.Empty;
             }
         }
@@ -1004,8 +964,9 @@ namespace RevitViewAndSheetManager
             {
                 return System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
             }
-            catch
+            catch (ArgumentException)
             {
+                LogError("GetProjectFileName::Invalid Argument.");
                 return string.Empty;
             }
         }
@@ -1019,11 +980,16 @@ namespace RevitViewAndSheetManager
             try
             {
                 string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-
                 return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
             }
-            catch
+            catch (PlatformNotSupportedException)
             {
+                LogError("GetAddinsAppDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetAddinsAppDataLocation::Invalid Argument.");
                 return string.Empty;
             }
         }
@@ -1037,11 +1003,16 @@ namespace RevitViewAndSheetManager
             try
             {
                 string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-
                 return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
             }
-            catch
+            catch (PlatformNotSupportedException)
             {
+                LogError("GetAddinsProgramDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetAddinsProgramDataLocation::Invalid Argument.");
                 return string.Empty;
             }
         }
@@ -1054,11 +1025,16 @@ namespace RevitViewAndSheetManager
             try
             {
                 string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-
                 return appDataloc + @"\Autodesk\Revit";
             }
-            catch
+            catch (PlatformNotSupportedException)
             {
+                LogError("GetRevitAppDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetRevitAppDataLocation::Invalid Argument.");
                 return string.Empty;
             }
         }
@@ -1071,11 +1047,16 @@ namespace RevitViewAndSheetManager
             try
             {
                 string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-
                 return appDataloc + @"\Autodesk\Revit";
             }
-            catch
+            catch (PlatformNotSupportedException)
             {
+                LogError("GetRevitProgramDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetRevitProgramDataLocation::Invalid Argument.");
                 return string.Empty;
             }
         }
@@ -1089,7 +1070,19 @@ namespace RevitViewAndSheetManager
             {
                 return uiDoc.Selection.PickPoint(message);
             }
-            catch
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickPoint::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickPoint::Invalid Operation.");
+                return null;
+            }
+
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
                 return null;
             }
@@ -1104,10 +1097,21 @@ namespace RevitViewAndSheetManager
             {
                 return uiDoc.Selection.PickPoint(type, message);
             }
-            catch
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickPoint::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickPoint::Invalid Operation.");
+                return null;
+            }
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
                 return null;
-            }            
+            }
         }
 
         /// <summary>
@@ -1136,7 +1140,7 @@ namespace RevitViewAndSheetManager
         /// </summary>
         public Reference PickObject(ObjectType ot, string message)
         {
-            return PickObject(ot, (ISelectionFilter)null, message);
+            return PickObject(ot, null, message);
         }
 
         /// <summary>
@@ -1154,7 +1158,18 @@ namespace RevitViewAndSheetManager
                 else
                     return uiDoc.Selection.PickObject(ot, sf, message);
             }
-            catch
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickObject::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickObject::Invalid Operation.");
+                return null;
+            }
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
                 return null;
             }
@@ -1204,7 +1219,18 @@ namespace RevitViewAndSheetManager
                 else
                     return uiDoc.Selection.PickObjects(ot, sf, message);
             }
-            catch
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickObjects::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickObjects::Invalid Operation.");
+                return null;
+            }
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
                 return null;
             }
@@ -1650,11 +1676,18 @@ namespace RevitViewAndSheetManager
 
                     temp.ChangeTypeId(type);
                 }
-                catch
+                catch (Autodesk.Revit.Exceptions.ArgumentException)
                 {
+                    LogError("ChangeFamily::Invalid Argument.");
                     t.RollBack();
                     return false;
-                }                
+                }
+                catch (Autodesk.Revit.Exceptions.ModificationForbiddenException)
+                {
+                    LogError("ChangeFamily::Modification of elements is forbidden.");
+                    t.RollBack();
+                    return false;
+                }
 
                 t.Commit();
             }
@@ -1777,6 +1810,7 @@ namespace RevitViewAndSheetManager
             }
             catch
             {
+                LogError("ChangeElementParameter::Error casting Element as FamilyInstance");
                 return false;
             }
 
