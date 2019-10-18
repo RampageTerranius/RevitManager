@@ -892,31 +892,37 @@ namespace RevitViewAndSheetManager
         /// <summary>
         /// Starts the main transaction group.
         /// </summary>
-        public void StartTransactions(string transactionName)
+        public bool StartTransactions(string transactionName)
         {
             if (!transactionList.HasStarted())
-            {
-                //prepare the transaction group and start it
-                transactionList.Start(transactionName);
-            }
+                if (transactionList.Start(transactionName) == TransactionStatus.Started)
+                    return true;
+
+            return false;
         }
 
         /// <summary>
-        /// Commits ALL transactions since StartTransactions was run 
+        /// Commits ALL transactions since StartTransactions was run under a single transaction
         /// </summary>
-        public void CommitTransactions()
+        public bool CommitTransactions()
         {
             if (transactionList.HasStarted())
-                transactionList.Assimilate();
+                if (transactionList.Assimilate() == TransactionStatus.Committed)
+                    return true;
+
+            return false;
         }
 
         /// <summary>
-        /// Reverts ALL transactions since the StartTransactions was run.
+        /// Reverts ALL transactions since StartTransactions was run.
         /// </summary>
-        public void RevertTransactions()
+        public bool RevertTransactions()
         {
             if (transactionList.HasStarted())
-                transactionList.RollBack();
+                if (transactionList.RollBack() == TransactionStatus.RolledBack)
+                    return true;
+
+            return false;
         }
 
         /// <summary>
@@ -1794,7 +1800,7 @@ namespace RevitViewAndSheetManager
                                 double.TryParse(newParameter, out tempd);
                                 result = p.Set(tempd);
                                 break;
-
+                                
                             case StorageType.ElementId:
                                 Element tempele = doc.GetElement(newParameter);
 
