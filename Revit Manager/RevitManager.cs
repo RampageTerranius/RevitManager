@@ -748,7 +748,10 @@ namespace RevitViewAndSheetManager
 
             // Make sure we have a view to work with, if we dont it doesnt exist and therefore can not be open.
             if (v == null)
+            {
+                LogError("ViewIsOpen::A view by the name of " + name + " was not found. It may not exist.");
                 return false;
+            }
 
             // Get a list of all open views and check if the oen we are checking for is open.
             IList<UIView> openViews = uiDoc.GetOpenUIViews();
@@ -770,7 +773,10 @@ namespace RevitViewAndSheetManager
 
             // Make sure we have a sheet to work with, if we dont it doesnt exist and therefore cane not be open.
             if (v == null)
+            {
+                LogError("SheetIsOpen::A sheet by the given name of " + name + " does not exist.");
                 return false;
+            }
 
             IList<UIView> openViews = uiDoc.GetOpenUIViews();
 
@@ -833,6 +839,8 @@ namespace RevitViewAndSheetManager
                     if (transactionList.Start(transactionName) == TransactionStatus.Started)
                         return true;
 
+            LogError("StartTransactions::Failed to start transaction list.");
+
             return false;
         }
 
@@ -844,6 +852,8 @@ namespace RevitViewAndSheetManager
             if (transactionList.HasStarted())
                 if (transactionList.Assimilate() == TransactionStatus.Committed)
                     return true;
+
+            LogError("CommitTransactions::Failed to commit transaction list.");
 
             return false;
         }
@@ -857,6 +867,8 @@ namespace RevitViewAndSheetManager
                 if (transactionList.RollBack() == TransactionStatus.RolledBack)
                     return true;
 
+            LogError("RevertTransactions::Failed to revert transaction list.");
+
             return false;
         }
 
@@ -867,13 +879,25 @@ namespace RevitViewAndSheetManager
         public bool ExportSheetAsDWG(string sheetName, string filePath, DWGExportOptions options)
         {
             // Make sure we have data to work with.
-            if (options == null || filePath == string.Empty)
+            if (options == null)
+            {
+                LogError("ExportSheetAsDWG::No options have been added.");
                 return false;
+            }
+
+            if (filePath == string.Empty)
+            {
+                LogError("ExportSheetAsDWG::No file path was given.");
+                return false;
+            }
 
             // Make sure we got sheets to work with.
             ICollection<ElementId> coll = GetSheetIdList(sheetName);
             if (coll == null)
+            {
+                LogError("ExportSheetAsDWG::No open sheets were open");
                 return false;
+            }
 
             // Count how many sheets we have gone through.
             int count = 1;
@@ -1532,12 +1556,18 @@ namespace RevitViewAndSheetManager
                 && s.Name.Equals(newType));
 
             if (coll.Count() == 0)
+            {
+                LogError("ChangeInstanceType::Unable to find new family instance/type.");
                 return false;
+            }
 
             ElementId type = coll.FirstOrDefault().Id;
 
             if (!familyInstance.IsValidType(type))
+            {
+                LogError("ChangeInstanceType::New Family instance is not a valid type for current Family instance.");
                 return false;
+            }
 
             using (Transaction t = new Transaction(doc))
             {
@@ -1554,11 +1584,23 @@ namespace RevitViewAndSheetManager
         /// </summary>
         public bool ChangeInstanceType(FamilyInstance familyInstance, FamilySymbol newType)
         {
-            if (familyInstance == null || newType == null)
+            if (familyInstance == null)
+            {
+                LogError("ChangeInstanceType::FamilyInstance was NULL.");
                 return false;
+            }
+
+            if (newType == null)
+            {
+                LogError("ChangeInstanceType::FamilySymbol was NULL.");
+                return false;
+            }
 
             if (!familyInstance.IsValidType(newType.Id))
+            {
+                LogError("ChangeInstanceType::New Family instance is not a valid type for current Family instance.");
                 return false;
+            }
 
             using (Transaction t = new Transaction(doc))
             {
@@ -1575,13 +1617,25 @@ namespace RevitViewAndSheetManager
         /// </summary>
         public bool ChangeElementType(ElementId eId, FamilySymbol newType)
         {
-            if (eId == null || newType == null)
+            if (eId == null)
+            {
+                LogError("ChangeElementType::ElementId was NULL.");
                 return false;
+            }
+
+            if (newType == null)
+            {
+                LogError("ChangeElementType::FamilySymbol was NULL.");
+                return false;
+            }
 
             Element e = doc.GetElement(eId);
 
             if (!e.IsValidType(newType.Id))
+            {
+                LogError("ChangeElementType::New Family instance is not a valid type for current Family instance.");
                 return false;
+            }
 
             using (Transaction t = new Transaction(doc))
             {
@@ -1606,13 +1660,19 @@ namespace RevitViewAndSheetManager
                 .Where(s => s.FamilyName.Equals(newFamily));
 
             if (coll.Count() == 0)
+            {
+                LogError("ChangeFamily::Unable to find new FamilySymbol.");
                 return false;
+            }
 
             ElementId type = coll.FirstOrDefault().Id;
 
             // Make sure the new type is valid for this instance.     
             if (!familyInstance.IsValidType(type))
+            {
+                LogError("ChangeFamily::New FamilySymbol is not a valid type for current Family instance.");
                 return false;
+            }
 
             // Update family instance to the new type   
             using (Transaction t = new Transaction(doc))
@@ -1631,12 +1691,23 @@ namespace RevitViewAndSheetManager
         /// </summary>
         public bool ChangeFamily(FamilyInstance familyInstance, FamilySymbol newFamily)
         {
-            if (familyInstance == null || newFamily == null)
+            if (familyInstance == null)
+            {
+                LogError("ChangeFamily::FamilyInstance was NULL.");
                 return false;
+            }
+            if (newFamily == null)
+            {
+                LogError("ChangeFamily::FamilySymbol was NULL.");
+                return false;
+            }                
 
             // Make sure the new type is valid for this instance.     
             if (!familyInstance.IsValidType(newFamily.Id))
+            {
+                LogError("ChangeFamily::New FamilySymbol is not a valid type for current Family instance.");
                 return false;
+            }
 
             // Update family instance to the new type   
             using (Transaction t = new Transaction(doc))
@@ -1662,7 +1733,10 @@ namespace RevitViewAndSheetManager
                 .Where(s => s.FamilyName.Equals(newFamily));
 
             if (coll.Count() == 0)
+            {
+                LogError("ChangeFamily::Unable to find new FamilySymbol.");
                 return false;
+            }
 
             ElementId type = coll.FirstOrDefault().Id;
 
