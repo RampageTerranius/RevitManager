@@ -52,6 +52,18 @@ namespace RevitViewAndSheetManager
             return errorList[errorList.Count - 1];
         }
 
+        /// <summary>
+        /// Shows the last error in a message box.
+        /// </summary>
+        public void ShowLastError()
+        {
+            ShowMessageBox("Error",
+                           "RevitManager_LogError",
+                           errorList[errorList.Count - 1].ToString(),
+                           TaskDialogIcon.TaskDialogIconWarning,
+                           TaskDialogCommonButtons.Close);
+        }
+
         private void LogError(string errorMessage)
         {
             errorList.Add(errorMessage);
