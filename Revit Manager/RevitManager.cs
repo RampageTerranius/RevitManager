@@ -104,6 +104,430 @@ namespace RevitViewAndSheetManager
 
         #endregion
 
+        #region Element Manipulation
+
+        /// <summary>
+        /// Wipes a specific element with the given id.
+        /// </summary>
+        public bool Delete(ElementId eID)
+        {
+            // Make sure an element was given.
+            if (eID != null)
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Deleting given element.");
+                    doc.Delete(eID);
+                    t.Commit();
+
+                    return true;
+                }
+            else
+                return false;
+        }
+
+        /// <summary>
+        /// Wipes all elements from the document with ids from the given list.
+        /// </summary>
+        public bool Delete(List<ElementId> eID)
+        {
+            // Make sure we have been given elements to delete.
+            if (eID != null)
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Deleting given element(s).");
+                    doc.Delete(eID);
+                    t.Commit();
+
+                    return true;
+                }
+            else
+                return false;
+        }
+
+        /// <summary>
+        /// Directly moves an element around a sheet, DOES NOT MOVE IT BETWEEN SHEETS.
+        /// </summary>
+        public void MoveElement(ElementId id, double x, double y)
+        {
+            using (Transaction t = new Transaction(doc))
+            {
+                t.Start("Moving element with id: '" + id + "' - X: '" + x + "' Y: '" + y);
+                ElementTransformUtils.MoveElement(doc, id, new XYZ(x, y, 0));
+                t.Commit();
+            }
+        }
+
+        /// <summary>
+        /// Rotate an element by a specific angle.
+        /// </summary>
+        public bool RotateElement(ElementId id, double angle)
+        {
+            try
+            {
+                using (Transaction t = new Transaction(doc))
+                {
+                    t.Start("Attempting to rotate element " + id.IntegerValue.ToString() + " by " + angle.ToString());
+                    // Find the element we are working with.
+                    Element e = doc.GetElement(id);
+
+                    // Get bounding box.
+                    BoundingBoxXYZ bbox = e.get_BoundingBox(doc.ActiveView);
+
+                    // Calculate the center of the bounding box.
+                    XYZ center = 0.5 * (bbox.Max + bbox.Min);
+
+                    // Create a axis to use from the center to the left.
+                    Line axis = Line.CreateBound(center, center + XYZ.BasisZ);
+
+                    // Attempt to rotate the element using the given parameters.
+                    // As our axis is from center to left we need to rotate as negative to get the correct rotation direction.
+                    ElementTransformUtils.RotateElement(doc, id, axis, -angle);
+
+                    t.Commit();
+                }
+                return true;
+            }
+            catch
+            {
+                LogError("RotateElement::Failed to rotate element of id: " + id.ToString() + " by angle: " + angle.ToString());
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Rotate an element by 90 degree angles.
+        /// </summary>
+        public bool RotateElement(ElementId id, RotationAngle angle)
+        {
+            return RotateElement(id, (DegreesToRadians(90) * (int)angle));
+        }        
+
+        /// <summary>
+        /// Ask the user to select a point and return the selected point.
+        /// </summary>
+        public XYZ PickPoint(string message)
+        {
+            try
+            {
+                return uiDoc.Selection.PickPoint(message);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickPoint::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickPoint::Invalid Operation.");
+                return null;
+            }
+
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Ask the user to select a point and return the selected point.
+        /// </summary>
+        public XYZ PickPoint(ObjectSnapTypes type, string message)
+        {
+            try
+            {
+                return uiDoc.Selection.PickPoint(type, message);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickPoint::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickPoint::Invalid Operation.");
+                return null;
+            }
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Ask the user to select a object and return the selected object.
+        /// </summary>
+        public Reference PickObject(ObjectType ot, SelectionFilter sf, string message)
+        {
+            ISelectionFilter filter = null;
+
+            switch (sf)
+            {
+                case SelectionFilter.Building:
+                    filter = new BuildingSelectionFilter();
+                    break;
+
+                case SelectionFilter.TextNote:
+                    filter = new TextNoteSelectionFilter();
+                    break;
+                case SelectionFilter.Window:
+                    break;
+            }
+
+            return PickObject(ot, filter, message);
+        }
+
+        //// <summary>
+        /// Ask the user to select a object and return the selected object.
+        /// </summary>
+        public Reference PickObject(ObjectType ot, string message)
+        {
+            return PickObject(ot, null, message);
+        }
+
+        /// <summary>
+        /// Ask the user to select a object and return the selected object.
+        /// </summary>
+        public Reference PickObject(ObjectType ot, ISelectionFilter sf, string message)
+        {
+            if (ot == ObjectType.Nothing || message == string.Empty)
+                return null;
+
+            try
+            {
+                if (sf == null)
+                    return uiDoc.Selection.PickObject(ot, message);
+                else
+                    return uiDoc.Selection.PickObject(ot, sf, message);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickObject::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickObject::Invalid Operation.");
+                return null;
+            }
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
+        /// </summary>
+        public IList<Reference> PickObjects(ObjectType ot, SelectionFilter sf, string message)
+        {
+            ISelectionFilter filter = null;
+
+            switch (sf)
+            {
+                case SelectionFilter.Building:
+                    filter = new BuildingSelectionFilter();
+                    break;
+
+                case SelectionFilter.TextNote:
+                    filter = new TextNoteSelectionFilter();
+                    break;
+            }
+
+            return PickObjects(ot, filter, message);
+        }
+
+        /// <summary>
+        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
+        /// </summary>
+        public IList<Reference> PickObjects(ObjectType ot, string message)
+        {
+            return PickObjects(ot, (ISelectionFilter)null, message);
+        }
+
+        /// <summary>
+        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
+        /// </summary>
+        public IList<Reference> PickObjects(ObjectType ot, ISelectionFilter sf, string message)
+        {
+            if (ot == ObjectType.Nothing || message == string.Empty)
+                return null;
+
+            try
+            {
+                if (sf == null)
+                    return uiDoc.Selection.PickObjects(ot, message);
+                else
+                    return uiDoc.Selection.PickObjects(ot, sf, message);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                LogError("PickObjects::Invalid Argument.");
+                return null;
+            }
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
+            {
+                LogError("PickObjects::Invalid Operation.");
+                return null;
+            }
+            // If the operation is canceled we do not want to show any form of error.
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Return a list of every element between two given points.
+        /// </summary>
+        public IEnumerable<Element> GetAllElementsBetweenTwoPoints(XYZ first, XYZ last)
+        {
+            // Make sure we have data to work with.
+            if (first == null || last == null)
+                return null;
+
+            IEnumerable<Element> eList = new List<Element>();
+
+            double minX, minY, minZ, maxX, maxY, maxZ;
+
+            if (first.X <= last.X)
+            {
+                minX = first.X;
+                maxX = last.X;
+            }
+            else
+            {
+                maxX = first.X;
+                minX = last.X;
+            }
+
+            if (first.Y <= last.Y)
+            {
+                minY = first.Y;
+                maxY = last.Y;
+            }
+            else
+            {
+                maxY = first.Y;
+                minY = last.Y;
+            }
+
+            if (first.Z <= last.Z)
+            {
+                minZ = first.Z;
+                maxZ = last.Z;
+            }
+            else
+            {
+                maxZ = first.Z;
+                minZ = last.Z;
+            }
+
+            XYZ min = new XYZ(minX, minY, minZ);
+            XYZ max = new XYZ(maxX, maxY, maxZ);
+
+            Outline ol = new Outline(min, max);
+
+            BoundingBoxIntersectsFilter filter = new BoundingBoxIntersectsFilter(ol);
+
+            FilteredElementCollector coll = new FilteredElementCollector(doc, doc.ActiveView.Id);
+            eList = coll.WherePasses(filter).
+                            Where(e => e.get_Geometry(new Options { ComputeReferences = true }) != null);
+
+            return eList;
+        }
+
+        /// <summary>
+        /// Returns the element in the document of the given reference.
+        /// </summary>
+        public Element GetElementViaReference(Reference r)
+        {
+            return doc.GetElement(r.ElementId);
+        }
+
+        /// <summary>
+        /// Changes the parameters on a given element.
+        /// </summary>
+        public bool ChangeElementParameter(ElementId eId, string parameterName, string newParameter)
+        {
+            FamilyInstance familyInstance;
+
+            //attempt to turn the given elementid into a family instance
+            try
+            {
+                familyInstance = doc.GetElement(eId) as FamilyInstance;
+            }
+            catch
+            {
+                LogError("ChangeElementParameter::Error casting Element as FamilyInstance");
+                return false;
+            }
+
+            foreach (Parameter p in familyInstance.Parameters)
+                if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
+                    using (Transaction t = new Transaction(doc))
+                    {
+                        bool result = false;
+
+                        t.Start("Edit Parameter");
+
+                        switch (p.StorageType)
+                        {
+                            case StorageType.Integer:
+                                int tempi;
+                                int.TryParse(newParameter, out tempi);
+                                result = p.Set(tempi);
+                                break;
+
+                            case StorageType.Double:
+                                double tempd;
+                                double.TryParse(newParameter, out tempd);
+                                result = p.Set(tempd);
+                                break;
+
+                            case StorageType.ElementId:
+                                Element tempele = doc.GetElement(newParameter);
+
+                                if (tempele != null)
+                                    result = p.Set(tempele.Id);
+                                break;
+
+                            case StorageType.String:
+                                result = p.Set(newParameter);
+                                break;
+                        }
+
+                        if (result)
+                            t.Commit();
+                        else
+                            t.RollBack();
+
+                        return result;
+                    }
+
+
+            return false;
+        }
+
+        /// <summary>
+        /// Retuns a parameter from the given element with the given name.
+        /// </summary>
+        public Parameter GetElementParameter(Element ele, string parameterName)
+        {
+            // Attempt to get the parameter data.
+            if (ele != null)
+                foreach (Parameter p in ele.Parameters)
+                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
+                        return p;
+
+            // Did not find a parameter with the given name.
+            return null;
+        }
+
+        #endregion
+
         #region Sheet Manipulation
 
         /// <summary>
@@ -1157,431 +1581,7 @@ namespace RevitViewAndSheetManager
             return null;
         }
 
-        #endregion
-
-        #region Element Manipulation
-
-        /// <summary>
-        /// Directly moves an element around a sheet, DOES NOT MOVE IT BETWEEN SHEETS.
-        /// </summary>
-        public void MoveElement(ElementId id, double x, double y)
-        {
-            using (Transaction t = new Transaction(doc))
-            {
-                t.Start("Moving element with id: '" + id + "' - X: '" + x + "' Y: '" + y);
-                ElementTransformUtils.MoveElement(doc, id, new XYZ(x, y, 0));
-                t.Commit();
-            }
-        }
-
-        /// <summary>
-        /// Rotate an element by a specific angle.
-        /// </summary>
-        public bool RotateElement(ElementId id, double angle)
-        {
-            try
-            {
-                using (Transaction t = new Transaction(doc))
-                {
-                    t.Start("Attempting to rotate element " + id.IntegerValue.ToString() + " by " + angle.ToString());
-                    // Find the element we are working with.
-                    Element e = doc.GetElement(id);
-
-                    // Get bounding box.
-                    BoundingBoxXYZ bbox = e.get_BoundingBox(doc.ActiveView);
-
-                    // Calculate the center of the bounding box.
-                    XYZ center = 0.5 * (bbox.Max + bbox.Min);
-
-                    // Create a axis to use from the center to the left.
-                    Line axis = Line.CreateBound(center, center + XYZ.BasisZ);
-
-                    // Attempt to rotate the element using the given parameters.
-                    // As our axis is from center to left we need to rotate as negative to get the correct rotation direction.
-                    ElementTransformUtils.RotateElement(doc, id, axis, -angle);
-
-                    t.Commit();
-                }
-                return true;
-            }
-            catch
-            {
-                LogError("RotateElement::Failed to rotate element of id: " + id.ToString() + " by angle: " + angle.ToString());
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Rotate an element by 90 degree angles.
-        /// </summary>
-        public bool RotateElement(ElementId id, RotationAngle angle)
-        {
-            return RotateElement(id, (DegreesToRadians(90) * (int)angle));
-        }
-
-        /// <summary>
-        /// Wipes a specific element with the given id.
-        /// </summary>
-        public bool Delete(ElementId eID)
-        {
-            // Make sure an element was given.
-            if (eID != null)
-                using (Transaction t = new Transaction(doc))
-                {
-                    t.Start("Deleting given element.");
-                    doc.Delete(eID);
-                    t.Commit();
-
-                    return true;
-                }
-            else
-                return false;
-        }
-
-        /// <summary>
-        /// Wipes all elements from the document with ids from the given list.
-        /// </summary>
-        public bool Delete(List<ElementId> eID)
-        {
-            // Make sure we have been given elements to delete.
-            if (eID != null)
-                using (Transaction t = new Transaction(doc))
-                {
-                    t.Start("Deleting given element(s).");
-                    doc.Delete(eID);
-                    t.Commit();
-
-                    return true;
-                }
-            else
-                return false;
-        }
-
-        /// <summary>
-        /// Ask the user to select a point and return the selected point.
-        /// </summary>
-        public XYZ PickPoint(string message)
-        {
-            try
-            {
-                return uiDoc.Selection.PickPoint(message);
-            }
-            catch (Autodesk.Revit.Exceptions.ArgumentException)
-            {
-                LogError("PickPoint::Invalid Argument.");
-                return null;
-            }
-            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
-            {
-                LogError("PickPoint::Invalid Operation.");
-                return null;
-            }
-
-            // If the operation is canceled we do not want to show any form of error.
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Ask the user to select a point and return the selected point.
-        /// </summary>
-        public XYZ PickPoint(ObjectSnapTypes type, string message)
-        {
-            try
-            {
-                return uiDoc.Selection.PickPoint(type, message);
-            }
-            catch (Autodesk.Revit.Exceptions.ArgumentException)
-            {
-                LogError("PickPoint::Invalid Argument.");
-                return null;
-            }
-            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
-            {
-                LogError("PickPoint::Invalid Operation.");
-                return null;
-            }
-            // If the operation is canceled we do not want to show any form of error.
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Ask the user to select a object and return the selected object.
-        /// </summary>
-        public Reference PickObject(ObjectType ot, SelectionFilter sf, string message)
-        {
-            ISelectionFilter filter = null;
-
-            switch (sf)
-            {
-                case SelectionFilter.Building:
-                    filter = new BuildingSelectionFilter();
-                    break;
-
-                case SelectionFilter.TextNote:
-                    filter = new TextNoteSelectionFilter();
-                    break;
-                case SelectionFilter.Window:
-                    break;
-            }
-
-            return PickObject(ot, filter, message);
-        }
-
-        //// <summary>
-        /// Ask the user to select a object and return the selected object.
-        /// </summary>
-        public Reference PickObject(ObjectType ot, string message)
-        {
-            return PickObject(ot, null, message);
-        }
-
-        /// <summary>
-        /// Ask the user to select a object and return the selected object.
-        /// </summary>
-        public Reference PickObject(ObjectType ot, ISelectionFilter sf, string message)
-        {
-            if (ot == ObjectType.Nothing || message == string.Empty)
-                return null;
-
-            try
-            {
-                if (sf == null)
-                    return uiDoc.Selection.PickObject(ot, message);
-                else
-                    return uiDoc.Selection.PickObject(ot, sf, message);
-            }
-            catch (Autodesk.Revit.Exceptions.ArgumentException)
-            {
-                LogError("PickObject::Invalid Argument.");
-                return null;
-            }
-            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
-            {
-                LogError("PickObject::Invalid Operation.");
-                return null;
-            }
-            // If the operation is canceled we do not want to show any form of error.
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
-        /// </summary>
-        public IList<Reference> PickObjects(ObjectType ot, SelectionFilter sf, string message)
-        {
-            ISelectionFilter filter = null;
-
-            switch (sf)
-            {
-                case SelectionFilter.Building:
-                    filter = new BuildingSelectionFilter();
-                    break;
-
-                case SelectionFilter.TextNote:
-                    filter = new TextNoteSelectionFilter();
-                    break;
-            }
-
-            return PickObjects(ot, filter, message);
-        }
-
-        /// <summary>
-        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
-        /// </summary>
-        public IList<Reference> PickObjects(ObjectType ot, string message)
-        {
-            return PickObjects(ot, (ISelectionFilter)null, message);
-        }
-
-        /// <summary>
-        /// Asks the user to pick objects and returns all picked objects as IList<Reference>.
-        /// </summary>
-        public IList<Reference> PickObjects(ObjectType ot, ISelectionFilter sf, string message)
-        {
-            if (ot == ObjectType.Nothing || message == string.Empty)
-                return null;
-
-            try
-            {
-                if (sf == null)
-                    return uiDoc.Selection.PickObjects(ot, message);
-                else
-                    return uiDoc.Selection.PickObjects(ot, sf, message);
-            }
-            catch (Autodesk.Revit.Exceptions.ArgumentException)
-            {
-                LogError("PickObjects::Invalid Argument.");
-                return null;
-            }
-            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
-            {
-                LogError("PickObjects::Invalid Operation.");
-                return null;
-            }
-            // If the operation is canceled we do not want to show any form of error.
-            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Return a list of every element between two given points.
-        /// </summary>
-        public IEnumerable<Element> GetAllElementsBetweenTwoPoints(XYZ first, XYZ last)
-        {
-            // Make sure we have data to work with.
-            if (first == null || last == null)
-                return null;
-
-            IEnumerable<Element> eList = new List<Element>();
-
-            double minX, minY, minZ, maxX, maxY, maxZ;
-
-            if (first.X <= last.X)
-            {
-                minX = first.X;
-                maxX = last.X;
-            }
-            else
-            {
-                maxX = first.X;
-                minX = last.X;
-            }
-
-            if (first.Y <= last.Y)
-            {
-                minY = first.Y;
-                maxY = last.Y;
-            }
-            else
-            {
-                maxY = first.Y;
-                minY = last.Y;
-            }
-
-            if (first.Z <= last.Z)
-            {
-                minZ = first.Z;
-                maxZ = last.Z;
-            }
-            else
-            {
-                maxZ = first.Z;
-                minZ = last.Z;
-            }
-
-            XYZ min = new XYZ(minX, minY, minZ);
-            XYZ max = new XYZ(maxX, maxY, maxZ);
-
-            Outline ol = new Outline(min, max);
-
-            BoundingBoxIntersectsFilter filter = new BoundingBoxIntersectsFilter(ol);
-
-            FilteredElementCollector coll = new FilteredElementCollector(doc, doc.ActiveView.Id);
-            eList = coll.WherePasses(filter).
-                            Where(e => e.get_Geometry(new Options { ComputeReferences = true }) != null);
-
-            return eList;
-        }
-
-        /// <summary>
-        /// Returns the element in the document of the given reference.
-        /// </summary>
-        public Element GetElementViaReference(Reference r)
-        {
-            return doc.GetElement(r.ElementId);
-        }
-
-        /// <summary>
-        /// Changes the parameters on a given element.
-        /// </summary>
-        public bool ChangeElementParameter(ElementId eId, string parameterName, string newParameter)
-        {
-            FamilyInstance familyInstance;
-
-            //attempt to turn the given elementid into a family instance
-            try
-            {
-                familyInstance = doc.GetElement(eId) as FamilyInstance;
-            }
-            catch
-            {
-                LogError("ChangeElementParameter::Error casting Element as FamilyInstance");
-                return false;
-            }
-
-            foreach (Parameter p in familyInstance.Parameters)
-                if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
-                    using (Transaction t = new Transaction(doc))
-                    {
-                        bool result = false;
-
-                        t.Start("Edit Parameter");
-
-                        switch (p.StorageType)
-                        {
-                            case StorageType.Integer:
-                                int tempi;
-                                int.TryParse(newParameter, out tempi);
-                                result = p.Set(tempi);
-                                break;
-
-                            case StorageType.Double:
-                                double tempd;
-                                double.TryParse(newParameter, out tempd);
-                                result = p.Set(tempd);
-                                break;
-
-                            case StorageType.ElementId:
-                                Element tempele = doc.GetElement(newParameter);
-
-                                if (tempele != null)
-                                    result = p.Set(tempele.Id);
-                                break;
-
-                            case StorageType.String:
-                                result = p.Set(newParameter);
-                                break;
-                        }
-
-                        if (result)
-                            t.Commit();
-                        else
-                            t.RollBack();
-
-                        return result;
-                    }
-
-
-            return false;
-        }
-
-        /// <summary>
-        /// Retuns a parameter from the given element with the given name.
-        /// </summary>
-        public Parameter GetElementParameter(Element ele, string parameterName)
-        {
-            // Attempt to get the parameter data.
-            if (ele != null)
-                foreach (Parameter p in ele.Parameters)
-                    if (p.Definition.Name.ToLower().Equals(parameterName.ToLower()))
-                        return p;
-
-            // Did not find a parameter with the given name.
-            return null;
-        }
-
-        #endregion
+        #endregion        
 
         #region Group Transaction
 
@@ -1628,139 +1628,7 @@ namespace RevitViewAndSheetManager
             return false;
         }
 
-        #endregion
-
-        #region File/Folder Locations
-
-        /// <summary>
-        /// Returns the location that the project exists as a string.
-        /// </summary>
-        public string GetProjectFileLocation()
-        {
-            try
-            {
-                return System.IO.Path.GetDirectoryName(doc.PathName);
-            }
-
-            catch (System.IO.PathTooLongException)
-            {
-                LogError("GetProjectFileLocation::The Path is too long.");
-                return string.Empty;
-            }
-            catch (ArgumentException)
-            {
-                LogError("GetProjectFileLocation::Invalid Argument.");
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Returns the file name of the project.
-        /// </summary>
-        public string GetProjectFileName()
-        {
-            try
-            {
-                return System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
-            }
-            catch (ArgumentException)
-            {
-                LogError("GetProjectFileName::Invalid Argument.");
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Returns the location of the local user Addins folder for the in-use version of revit.
-        /// Addins in this folder are user specific.
-        /// </summary>
-        public string GetAddinsAppDataLocation()
-        {
-            try
-            {
-                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
-            }
-            catch (PlatformNotSupportedException)
-            {
-                LogError("GetAddinsAppDataLocation::The platform you are using does not support use of this function.");
-                return string.Empty;
-            }
-            catch (ArgumentException)
-            {
-                LogError("GetAddinsAppDataLocation::Invalid Argument.");
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Returns the location of the common Addins folder for the in-use version of revit.
-        /// Addins in this folder are non-user specific.
-        /// </summary>
-        public string GetAddinsProgramDataLocation()
-        {
-            try
-            {
-                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
-            }
-            catch (PlatformNotSupportedException)
-            {
-                LogError("GetAddinsProgramDataLocation::The platform you are using does not support use of this function.");
-                return string.Empty;
-            }
-            catch (ArgumentException)
-            {
-                LogError("GetAddinsProgramDataLocation::Invalid Argument.");
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Returns the location of the local user Revit settings folder for the in-use version of revit.
-        /// </summary>
-        public string GetRevitAppDataLocation()
-        {
-            try
-            {
-                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                return appDataloc + @"\Autodesk\Revit";
-            }
-            catch (PlatformNotSupportedException)
-            {
-                LogError("GetRevitAppDataLocation::The platform you are using does not support use of this function.");
-                return string.Empty;
-            }
-            catch (ArgumentException)
-            {
-                LogError("GetRevitAppDataLocation::Invalid Argument.");
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Returns the location of the common Revit folder for the in-use version of revit.
-        /// </summary
-        public string GetRevitProgramDataLocation()
-        {
-            try
-            {
-                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                return appDataloc + @"\Autodesk\Revit";
-            }
-            catch (PlatformNotSupportedException)
-            {
-                LogError("GetRevitProgramDataLocation::The platform you are using does not support use of this function.");
-                return string.Empty;
-            }
-            catch (ArgumentException)
-            {
-                LogError("GetRevitProgramDataLocation::Invalid Argument.");
-                return string.Empty;
-            }
-        }
-
-        #endregion
+        #endregion        
 
         #region Family Instance/Symbol manipulation
 
@@ -2188,6 +2056,138 @@ namespace RevitViewAndSheetManager
 
         #endregion
 
+        #region File/Folder Locations
+
+        /// <summary>
+        /// Returns the location that the project exists as a string.
+        /// </summary>
+        public string GetProjectFileLocation()
+        {
+            try
+            {
+                return System.IO.Path.GetDirectoryName(doc.PathName);
+            }
+
+            catch (System.IO.PathTooLongException)
+            {
+                LogError("GetProjectFileLocation::The Path is too long.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetProjectFileLocation::Invalid Argument.");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the file name of the project.
+        /// </summary>
+        public string GetProjectFileName()
+        {
+            try
+            {
+                return System.IO.Path.GetFileNameWithoutExtension(doc.PathName);
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetProjectFileName::Invalid Argument.");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the local user Addins folder for the in-use version of revit.
+        /// Addins in this folder are user specific.
+        /// </summary>
+        public string GetAddinsAppDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
+            }
+            catch (PlatformNotSupportedException)
+            {
+                LogError("GetAddinsAppDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetAddinsAppDataLocation::Invalid Argument.");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the common Addins folder for the in-use version of revit.
+        /// Addins in this folder are non-user specific.
+        /// </summary>
+        public string GetAddinsProgramDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                return appDataloc + @"\Autodesk\Revit\Addins\" + UiApp.Application.VersionNumber;
+            }
+            catch (PlatformNotSupportedException)
+            {
+                LogError("GetAddinsProgramDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetAddinsProgramDataLocation::Invalid Argument.");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the local user Revit settings folder for the in-use version of revit.
+        /// </summary>
+        public string GetRevitAppDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return appDataloc + @"\Autodesk\Revit";
+            }
+            catch (PlatformNotSupportedException)
+            {
+                LogError("GetRevitAppDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetRevitAppDataLocation::Invalid Argument.");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Returns the location of the common Revit folder for the in-use version of revit.
+        /// </summary
+        public string GetRevitProgramDataLocation()
+        {
+            try
+            {
+                string appDataloc = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                return appDataloc + @"\Autodesk\Revit";
+            }
+            catch (PlatformNotSupportedException)
+            {
+                LogError("GetRevitProgramDataLocation::The platform you are using does not support use of this function.");
+                return string.Empty;
+            }
+            catch (ArgumentException)
+            {
+                LogError("GetRevitProgramDataLocation::Invalid Argument.");
+                return string.Empty;
+            }
+        }
+
+        #endregion
+
         #region General
 
         /// <summary>
@@ -2388,6 +2388,24 @@ namespace RevitViewAndSheetManager
                 return null;
         }
 
+        // Enum used with rotating views.
+        public enum RotationAngle
+        {
+            Left = 1,
+            Down = 2,
+            Right = 3
+        }
+
+        // Used via DistinguishRoom to determine the state of the room.
+        public enum RoomState
+        {
+            Placed,
+            NotPlaced,
+            NotEnclosed,
+            Redundant,
+            Unknown
+        }
+
         #endregion
 
         #region Selection Filters
@@ -2441,23 +2459,5 @@ namespace RevitViewAndSheetManager
         Window
     }
 
-    #endregion
-
-    // Enum used with rotating views.
-    public enum RotationAngle
-    {
-        Left = 1,
-        Down = 2,
-        Right = 3
-    }
-
-    // Used via DistinguishRoom to determine the state of the room.
-    public enum RoomState
-    {
-        Placed,
-        NotPlaced,
-        NotEnclosed,
-        Redundant,
-        Unknown
-    }
+    #endregion    
 }
