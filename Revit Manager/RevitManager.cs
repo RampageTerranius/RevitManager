@@ -696,7 +696,7 @@ namespace RevitViewAndSheetManager
 
             // Didnt find the sheet, return null.
             return null;
-        }        
+        }
 
         /// <summary>
         /// Exports a given sheet as a DWG file using the given options.
@@ -779,6 +779,80 @@ namespace RevitViewAndSheetManager
 
                 count++;
             }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Exports a given View as a DWG file using the given options.
+        /// Returns true if success, returns false if failed.
+        /// </summary>
+        public bool ExportViewAsDWG(string viewName, string filePath, DWGExportOptions options)
+        {
+            // Make sure we have data to work with.
+            if (options == null)
+            {
+                LogError("ExportSheetAsDWG::No options have been added.");
+                return false;
+            }
+
+            if (filePath == string.Empty)
+            {
+                LogError("ExportSheetAsDWG::No file path was given.");
+                return false;
+            }
+
+            // Make sure we got sheets to work with.
+            ElementId coll = GetViewId(viewName);
+            if (coll == null)
+            {
+                LogError("ExportSheetAsDWG::No view found");
+                return false;
+            }
+            
+            using (Transaction t = new Transaction(doc))
+            {
+                // Get the sheet name and check if we need to add a number to the end.
+                string name = viewName;
+
+                t.Start("exporting '" + name + "' as a DWG file.");
+
+                // Add the file to a list as required.
+                ICollection<ElementId> ele = new List<ElementId>();
+                ele.Add(coll);
+
+                // Attempt to export the sheet and rollback if it fails.
+                try
+                {
+                    doc.Export(filePath, name, ele, options);
+                }
+                catch (Autodesk.Revit.Exceptions.DirectoryNotFoundException)
+                {
+                    LogError("ExportSheetAsDWG::Failed to export sheet: The directory was not found.");
+                    t.RollBack();
+                    return false;
+                }
+                catch (Autodesk.Revit.Exceptions.InvalidPathArgumentException)
+                {
+                    LogError("ExportSheetAsDWG::Failed to export sheet: The given path was invalid.");
+                    t.RollBack();
+                    return false;
+                }
+                catch (Autodesk.Revit.Exceptions.ArgumentException)
+                {
+                    LogError("ExportSheetAsDWG::Invalid Argument.");
+                    t.RollBack();
+                    return false;
+                }
+                catch
+                {
+                    LogError("ExportSheetAsDWG::Unhandled Exception.");
+                    t.RollBack();
+                    return false;
+                }
+
+                t.Commit();
+            }            
 
             return true;
         }
@@ -1043,6 +1117,20 @@ namespace RevitViewAndSheetManager
 
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Checks if a view with the given name exists.
+        /// Returns true if a view exists, returns false if not.
+        /// </summary>
+        public bool ViewExists(string viewName)
+        {
+            View v = GetView(viewName);
+
+            if (v == null)
+                return false;
+
+            return true;
         }
 
         /// <summary>
