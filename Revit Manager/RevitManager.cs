@@ -2339,7 +2339,7 @@ namespace RevitViewAndSheetManager
 
         /// <summary>
         /// Returns the location of the common Revit folder for the in-use version of revit.
-        /// </summary
+        /// </summary>
         public string GetRevitProgramDataLocation()
         {
             try
@@ -2628,8 +2628,7 @@ namespace RevitViewAndSheetManager
     public enum SelectionFilter
     {
         Building,
-        TextNote,
-        Window
+        TextNote
     }
 
     #endregion    
