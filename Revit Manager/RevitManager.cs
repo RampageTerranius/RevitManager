@@ -1022,6 +1022,32 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
+        /// Removes all view sections on the given view.
+        /// </summary>
+        public bool RemoveAllViewSectionsOnView(string viewName)
+        {
+            ElementId s = GetViewId(viewName);
+
+            if (s == null)
+                return false;
+
+            // Get all view sections.
+            IEnumerable<ViewSection> coll = new FilteredElementCollector(doc, s)
+                .OfClass(typeof(ViewSection))
+                .Cast<ViewSection>();
+
+            // Wipe all view sections.
+            List<ElementId> coll2 = new List<ElementId>();
+
+            foreach (ViewSection i in coll)
+                coll2.Add(i.Id);
+
+            Delete(coll2);
+
+            return true;
+        }
+
+        /// <summary>
         /// Changes a viewport on the given sheets viewporttype into another type.
         /// </summary>
         public void ChangeViewPortType(string sheetName, ElementId viewportId, string typeName)
@@ -1266,7 +1292,7 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)
             {
-                LogError("RemoveAllIndependentTags::Unable to remove all independant tags from " + viewName + ", it may not exist.");
+                LogError("RemoveAllIndependentTags::Unable to remove all independant tags from " + viewName + ", the view may not exist.");
                 return;
             }
 
@@ -1296,7 +1322,7 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)
             {
-                LogError("RemoveAllDimensions::Unable to remove all dimensions from " + viewName + ", it may not exist.");
+                LogError("RemoveAllDimensions::Unable to remove all dimensions from " + viewName + ", the view may not exist.");
                 return;
             }
 
@@ -1326,7 +1352,7 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)
             {
-                LogError("RemoveAllDimensionsOfType::Unable to remove all independant tags of type " + dimType.ToString() + " from " + viewName + ", it may not exist.");
+                LogError("RemoveAllDimensionsOfType::Unable to remove all dimensions of type " + dimType.ToString() + " from " + viewName + ", the view may not exist.");
                 return;
             }
 
@@ -1347,6 +1373,65 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
+        /// Removes ALL Curve Elements from the given view.
+        /// </summary>
+        public void RemoveAllCurveElements(string viewName)
+        {
+            // Get the view to work with.
+            ElementId v = GetViewId(viewName);
+
+            // Check if we have a view to work with.
+            if (v == null)
+            {
+                LogError("RemoveAllCurveElements::Unable to remove all curve elements from " + viewName + ", the view may not exist.");
+                return;
+            }
+
+            // Get all the detail lines.
+            IEnumerable<CurveElement> coll = new FilteredElementCollector(doc, v)
+                .OfClass(typeof(CurveElement))
+                .Cast<CurveElement>();
+
+            // Wipe all found detail lines.
+            List<ElementId> coll2 = new List<ElementId>();
+
+            foreach (DetailLine i in coll)
+                coll2.Add(i.Id);
+
+            Delete(coll2);
+        }
+
+        /// <summary>
+        /// Removes ALL Curve Elements of the given type from the given view.
+        /// </summary>
+        public void RemoveAllCurveElementsOfType(string viewName, CurveElementType curveType)
+        {
+            // Get the view to work with.
+            ElementId v = GetViewId(viewName);
+
+            // Check if we have a view to work with.
+            if (v == null)
+            {
+                LogError("RemoveAllCurveElements::Unable to remove given curve element of type " + curveType.ToString() + " from " + viewName + ", the view may not exist.");
+                return;
+            }
+
+            // Get all the detail lines.
+            IEnumerable<CurveElement> coll = new FilteredElementCollector(doc, v)
+                .OfClass(typeof(CurveElement))
+                .Cast<CurveElement>()
+                .Where(c => c.CurveElementType == curveType);
+
+            // Wipe all found detail lines.
+            List<ElementId> coll2 = new List<ElementId>();
+
+            foreach (DetailLine i in coll)
+                coll2.Add(i.Id);
+
+            Delete(coll2);
+        }
+
+        /// <summary>
         /// Removes ALL text notes from a given view.
         /// </summary>
         public void RemoveAllTextNotes(string viewName)
@@ -1357,7 +1442,7 @@ namespace RevitViewAndSheetManager
             // Check if we have a view to work with.
             if (v == null)
             {
-                LogError("RemoveAllTextNotes::Unable to remove all text notes from " + viewName + ", it may not exist.");
+                LogError("RemoveAllTextNotes::Unable to remove all text notes from " + viewName + ", The view may not exist.");
                 return;
             }
 
@@ -1386,7 +1471,7 @@ namespace RevitViewAndSheetManager
 
             if (v == null)
             {
-                LogError("RemoveAllAnnotations::Unable to remove all generic annotations from " + viewName + ", it may not exist.");
+                LogError("RemoveAllAnnotations::Unable to remove all generic annotations from " + viewName + ", the view may not exist.");
                 return;
             }
 
@@ -1415,7 +1500,7 @@ namespace RevitViewAndSheetManager
 
             if (v == null)
             {
-                LogError("RemoveAllGroups::Unable to remove all groups from " + viewName + ", it may not exist.");
+                LogError("RemoveAllGroups::Unable to remove all groups from " + viewName + ", the view may not exist.");
                 return;
             }
 
@@ -1496,7 +1581,7 @@ namespace RevitViewAndSheetManager
             // Make sure we have a view to work with, if we dont it doesnt exist and therefore can not be open.
             if (v == null)
             {
-                LogError("ViewIsOpen::A view by the name of " + name + " was not found. It may not exist.");
+                LogError("ViewIsOpen::A view by the name of " + name + " was not found. The view may not exist.");
                 return false;
             }
 
