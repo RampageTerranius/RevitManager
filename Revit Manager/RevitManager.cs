@@ -271,8 +271,6 @@ namespace RevitViewAndSheetManager
                 case SelectionFilter.TextNote:
                     filter = new TextNoteSelectionFilter();
                     break;
-                case SelectionFilter.Window:
-                    break;
             }
 
             return PickObject(ot, filter, message);
