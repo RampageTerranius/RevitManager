@@ -1423,7 +1423,7 @@ namespace RevitViewAndSheetManager
             // Wipe all found detail lines.
             List<ElementId> coll2 = new List<ElementId>();
 
-            foreach (DetailLine i in coll)
+            foreach (CurveElement i in coll)
                 coll2.Add(i.Id);
 
             Delete(coll2);
