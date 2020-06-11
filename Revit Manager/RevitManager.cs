@@ -1310,6 +1310,36 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
+        /// Removes all revision clouds from the view.
+        /// </summary>
+        public void RemoveAllRevisionClouds(string viewName)
+        {
+            // Get the view we will be working with.
+            ElementId v = GetViewId(viewName);
+
+            // Check if we have a view to work with.
+            if (v == null)
+            {
+                LogError("RemoveAllRevisionClouds::Unable to remove all revision clouds from " + viewName + ", the view may not exist.");
+                return;
+            }
+
+            // Grab all independent tags owned by the view we are worknig with.
+            IEnumerable<RevisionCloud> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(RevisionCloud))
+                .Cast<RevisionCloud>()
+                .Where(i => i.OwnerViewId.Equals(v));
+
+            // Wipe all found tags.
+            List<ElementId> coll2 = new List<ElementId>();
+
+            foreach (RevisionCloud i in coll)
+                coll2.Add(i.Id);
+
+            Delete(coll2);
+        }
+
+        /// <summary>
         /// Removes ALL dimensions from given view.
         /// </summary>
         public void RemoveAllDimensions(string viewName)
@@ -1515,6 +1545,36 @@ namespace RevitViewAndSheetManager
 
             Delete(coll2);
         }
+
+        /*
+        /// <summary>
+        /// Removes groups of the given name from the view.
+        /// </summary>
+        public void RemoveGroupsOfName(string viewName, string name)
+        {
+            // Make sure we have a view to work with.
+            ElementId v = GetViewId(viewName);
+
+            if (v == null)
+            {
+                LogError("RemoveAllGroups::Unable to remove groups from " + viewName + ", the view may not exist.");
+                return;
+            }
+
+            // Find all annotation symbols in the given view.
+            IEnumerable<GroupType> coll = new FilteredElementCollector(doc, v)
+                .OfClass(typeof(GroupType))
+                .Cast<GroupType>()
+                .Where(c => c.Name == name);
+
+            // Wipe all found symbols.
+            List<ElementId> coll2 = new List<ElementId>();
+
+            foreach (Element i in coll)
+                coll2.Add(i.Id);
+
+            Delete(coll2);
+        }*/
 
         /// <summary>
         /// Returns the ID of the crop box of a given view.
