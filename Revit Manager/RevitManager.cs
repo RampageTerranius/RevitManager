@@ -2016,6 +2016,48 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
+        /// Deletes the first found family with the given name.
+        /// WARNING: if called on an in use family it will cause revit to show warnings.
+        /// </summary>
+        public bool DeleteFamily(string familyName)
+        {
+            IEnumerable<Family> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(Family))
+                .Cast<Family>()
+                .Where(s => s.Name.Equals(familyName));
+
+            if (coll.Count() == 0)
+            {
+                LogError("DeleteFamily::Unable to find family.");
+                return false;
+            }
+
+            ElementId id = coll.FirstOrDefault().Id;
+
+            Delete(id);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Returns a list of all families.
+        /// </summary>
+        public List<Family> GetAllFamilies()
+        {
+            IEnumerable<Family> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(Family))
+                .Cast<Family>();
+
+            if (coll.Count() == 0)
+            {
+                LogError("DeleteFamily::Unable to find family.");
+                return null;
+            }
+
+            return coll.ToList();
+        }
+
+        /// <summary>
         /// Changes the family of a given instance.
         /// Searches for the new family by name, slower then directly giving it the FamilySymbol.
         /// </summary>
