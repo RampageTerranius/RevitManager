@@ -2058,6 +2058,24 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
+        /// Returns a list of all family Symbols.
+        /// </summary>
+        public List<FamilySymbol> GetAllFamilySymbols()
+        {
+            IEnumerable<FamilySymbol> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>();
+
+            if (coll.Count() == 0)
+            {
+                LogError("DeleteFamily::Unable to find family.");
+                return null;
+            }
+
+            return coll.ToList();
+        }        
+
+        /// <summary>
         /// Changes the family of a given instance.
         /// Searches for the new family by name, slower then directly giving it the FamilySymbol.
         /// </summary>
@@ -2458,6 +2476,94 @@ namespace RevitViewAndSheetManager
                 return string.Empty;
             }
         }
+
+        #endregion
+
+        #region File Manipulation
+
+        /// <summary>
+        /// Attempts to save the main document and returns if sucessful.
+        /// </summary>
+        public bool SaveAll()
+        {
+            if (doc == null)
+                return false;
+
+            try
+            {
+                doc.Save();
+                return true;
+            }
+            catch (Exception e)
+            {
+                LogError("SaveAll failed: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Attempts to Close the main document and returns if sucessful, document save o nclsoe is determiend by saveChanges.
+        /// </summary>
+        public bool CloseAll(bool saveChanges)
+        {
+            if (doc == null)
+                return false;
+
+            try
+            {
+                doc.Close(saveChanges);
+                return true;
+            }
+            catch (Exception e)
+            {
+                LogError("CloseAll failed: " + e.Message);
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Timers
+
+        /// <summary>
+        /// Used to determine how long since first started the program has been running.
+        /// </summary>
+        public static class Timer
+        {
+            private static bool running = false;
+            private static DateTime startTime;
+
+            /// <summary>
+            /// Starts the timer. If timer is already started starts a new one fresh.
+            /// </summary>
+            public static void Start() 
+            {
+                startTime = DateTime.Now;
+                running = true;                
+            }
+
+            /// <summary>
+            /// Stops the Timer.
+            /// </summary>
+            public static void Stop()
+            {
+                startTime = new DateTime();
+                running = false;                
+            }
+
+            /// <summary>
+            /// Returns a TimeSpan of how long the program has been running since first Start. if timer is not running returns a default TimeSpan.
+            /// </summary>
+            public static TimeSpan TimeSinceStart()
+            {
+                if (!running)
+                    return new TimeSpan();
+
+                TimeSpan time = DateTime.Now - startTime;
+
+                return time;
+            }
+        }            
 
         #endregion
 
