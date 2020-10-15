@@ -46,6 +46,27 @@ namespace RevitViewAndSheetManager
             errorList = new List<string>();
         }
 
+        /// <summary>
+        /// Secondary Constructor.
+        /// Useful for if your not working with a command directly.
+        /// Requires the user to give the uiApp directly so that we may prepare uiDoc and doc data.
+        /// </summary>
+        public RevitManager(UIApplication newUIApp)
+        {
+            // Check if we have been given command data.
+            if (newUIApp == null)
+                throw new ArgumentNullException("commandData");
+
+            // Preparing necessary variables.
+            uiApp = newUIApp;
+            uiDoc = uiApp.ActiveUIDocument;
+            doc = uiDoc.Document;
+
+            transactionList = new TransactionGroup(doc);
+
+            errorList = new List<string>();
+        }
+
         #endregion
 
         #region Error Handling
