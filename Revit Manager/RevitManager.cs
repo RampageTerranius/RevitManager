@@ -55,7 +55,7 @@ namespace RevitViewAndSheetManager
         {
             // Check if we have been given command data.
             if (newUIApp == null)
-                throw new ArgumentNullException("commandData");
+                throw new ArgumentNullException("newUIApp");
 
             // Preparing necessary variables.
             uiApp = newUIApp;
