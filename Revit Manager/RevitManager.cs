@@ -2061,6 +2061,42 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
+        /// Deletes the first found familysymbol with the given name.
+        /// </summary>
+        public bool DeleteFamilySymbol(string familySymbolName)
+        {
+            return DeleteFamilySymbol(familySymbolName, false);
+        }
+
+        /// <summary>
+        /// Deletes the first found familysymbol with the given name. Can delete family if it is empty after symbol deletion.
+        /// </summary>
+        public bool DeleteFamilySymbol(string familySymbolName, bool deleteEmptyFamilies)
+        {
+            IEnumerable<FamilySymbol> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilySymbol))
+                .Cast<FamilySymbol>()
+                .Where(s => s.Name.Equals(familySymbolName));
+
+            if (coll.Count() == 0)
+            {
+                LogError("DeleteFamilySymbol::Unable to find family symbol.");
+                return false;
+            }
+
+            ElementId id = coll.FirstOrDefault().Id;
+            Family fam = coll.FirstOrDefault().Family;
+
+            Delete(id);
+
+            if (deleteEmptyFamilies)
+                if (fam.GetFamilySymbolIds().Count == 0)
+                    Delete(fam.Id);
+
+            return true;
+        }
+
+        /// <summary>
         /// Returns a list of all families.
         /// </summary>
         public List<Family> GetAllFamilies()
@@ -2071,7 +2107,7 @@ namespace RevitViewAndSheetManager
 
             if (coll.Count() == 0)
             {
-                LogError("DeleteFamily::Unable to find family.");
+                LogError("GetAllFamilies::Unable to find families.");
                 return null;
             }
 
@@ -2079,7 +2115,7 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
-        /// Returns a list of all family Symbols.
+        /// Returns a list of all family symbols.
         /// </summary>
         public List<FamilySymbol> GetAllFamilySymbols()
         {
@@ -2089,12 +2125,30 @@ namespace RevitViewAndSheetManager
 
             if (coll.Count() == 0)
             {
-                LogError("DeleteFamily::Unable to find family.");
+                LogError("GetAllFamilySymbols::Unable to find symbols.");
                 return null;
             }
 
             return coll.ToList();
-        }        
+        }
+
+        /// <summary>
+        /// Returns a list of all family instances.
+        /// </summary>
+        public List<FamilyInstance> GetAllFamiliyInstances()
+        {
+            IEnumerable<FamilyInstance> coll = new FilteredElementCollector(doc)
+                .OfClass(typeof(FamilyInstance))
+                .Cast<FamilyInstance>();
+
+            if (coll.Count() == 0)
+            {
+                LogError("GetAllFamiliyInstances::Unable to find family instances.");
+                return null;
+            }
+
+            return coll.ToList();
+        }
 
         /// <summary>
         /// Changes the family of a given instance.
@@ -2196,6 +2250,13 @@ namespace RevitViewAndSheetManager
                 try
                 {
                     FamilyInstance temp = doc.GetElement(instance) as FamilyInstance;
+
+                    if (temp == null)
+                    {
+                        LogError("ChangeFamily::No object was found");
+                        t.RollBack();
+                        return false;
+                    }
 
                     temp.ChangeTypeId(type);
                 }
