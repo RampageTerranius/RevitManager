@@ -2584,9 +2584,10 @@ namespace RevitViewAndSheetManager
         }
 
         /// <summary>
-        /// Attempts to Close the main document and returns if sucessful, document save o nclsoe is determiend by saveChanges.
+        /// Attempts to Close the main document and returns if sucessful, document save onclsoe is determiend by saveChanges.
         /// </summary>
-        public bool CloseAll(bool saveChanges)
+        /// DOES NOT FUNCTION, unable to close currently open document via API.
+        /*public bool CloseAll(bool saveChanges)
         {
             if (doc == null)
                 return false;
@@ -2601,7 +2602,7 @@ namespace RevitViewAndSheetManager
                 LogError("CloseAll failed: " + e.Message);
                 return false;
             }
-        }
+        }*/
 
         #endregion
 
